@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge v1.5</title>
+<title>10 Game — DecaMerge v1.6</title>
 <meta name="theme-color" content="#F6F3EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -94,23 +94,22 @@
   </header>
 
   <div id="stage">
-    <!-- 固定内部解像度：CSSでスケール（見切れ防止） -->
     <canvas id="cv" width="360" height="640" aria-label="10 Game canvas"></canvas>
   </div>
 
   <footer>
-    指で<strong>左右にスライドして狙う</strong> → <strong>指を離す（or 軽いタップ）</strong>で投入。<br>
+    指で<strong>左右にスライドして狙う</strong> → <strong>指を離す</strong>と投入。<br>
     <b>小玉</b>は<b>足して10</b>で「10」に<b>即合体</b>、<b>同じ大玉</b>は<b>倍々合体</b>！
   </footer>
 </div>
 
-<!-- ヘルプ（ダイアログ扱い） -->
+<!-- ヘルプ -->
 <div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
     <h3>🎮 遊び方（10 Game - DecaMerge）</h3>
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して、落とす位置を決めます。</li>
-      <li>位置が決まったら<strong>指を離す</strong>と、玉がその位置に落ちます（スライド中は落ちません）。</li>
+      <li><strong>指を離す</strong>と、その位置に玉が落ちます（スライド中は落ちません）。</li>
       <li><strong>1〜9</strong>は、触れて合計が<strong>10</strong>になると<strong>10玉に即合体</strong>します。</li>
       <li><strong>10と10</strong>→<strong>20</strong>、<strong>20と20</strong>→<strong>40</strong>…のように<strong>同じ大玉</strong>は合体して<strong>倍</strong>になります。</li>
       <li>バウンドは弱め。転がって<b>すぐ止まる</b>ので狙いやすいです。</li>
@@ -168,7 +167,7 @@
 
   // gesture / modal
   let helpOpen = false;
-  let dragging = false, startX=0, moved=0, downTime=0, activePointer=null;
+  let dragging = false, startX=0, activePointer=null;
 
   // undo
   let undoState = null;
@@ -191,8 +190,7 @@
   function randSmall(){
     const r = Math.random();
     if (r<0.15) return 1; if (r<0.30) return 2; if (r<0.47) return 3; if (r<0.64) return 4;
-    if (r<0.78) return 5; if (r<0.88) return 6; if (r<0.94) return 7; if (r<0.98) return 8;
-    return 9;
+    if (r<0.78) return 5; if (r<0.88) return 6; if (r<0.94) return 7; if (r<0.98) return 8; return 9;
   }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
@@ -209,7 +207,7 @@
   // ===== modal open/close（ポインタ状態リセット付き） =====
   function resetPointerState(){
     try { if (activePointer!==null) cv.releasePointerCapture(activePointer); } catch(e){}
-    dragging=false; activePointer=null; moved=0;
+    dragging=false; activePointer=null;
   }
   function openHelp(){
     helpOpen = true;
@@ -227,49 +225,48 @@
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
 
-  // 初回のみヘルプ自動表示
-  if (!localStorage.getItem('decamerge_seen_help')) {
-    openHelp(); localStorage.setItem('decamerge_seen_help','1');
-  }
+  if (!localStorage.getItem('decamerge_seen_help')) { openHelp(); localStorage.setItem('decamerge_seen_help','1'); }
 
-  // ===== pointer inputs (スライド中は落ちない) =====
-  const TAP_DIST = 10, TAP_TIME = 350;
+  // ===== pointer inputs =====
   function canvasX(e){
     const rect = cv.getBoundingClientRect();
     const clientX = e.clientX ?? (e.touches && e.touches[0].clientX) ?? startX;
     return (clientX - rect.left) * (cv.width/rect.width);
   }
   function onPointerDown(e){
-    if (helpOpen) return;            // モーダル中は無効
+    if (helpOpen) return;
     if (activePointer !== null) return;
     cv.setPointerCapture(e.pointerId);
     activePointer = e.pointerId;
     dragging = true;
     const x = canvasX(e);
     aimX = clamp(x, LEFT, RIGHT);
-    startX = x; moved = 0; downTime = performance.now();
+    startX = x;
   }
   function onPointerMove(e){
     if (!dragging || e.pointerId !== activePointer) return;
     const x = canvasX(e);
-    moved = Math.max(moved, Math.abs(x - startX));
     aimX = clamp(x, LEFT, RIGHT);
   }
   function onPointerUp(e){
     if (e.pointerId !== activePointer) return;
-    const elapsed = performance.now() - downTime;
-    const wasTap = (moved < TAP_DIST) && (elapsed < TAP_TIME);
+    // ★ 指を離したら必ず落とす（モーダル中は無効）
+    if (!helpOpen) drop();
     resetPointerState();
-    if (!helpOpen && wasTap) drop();
   }
   if (window.PointerEvent){
     cv.addEventListener('pointerdown', onPointerDown, {passive:false});
     cv.addEventListener('pointermove', onPointerMove, {passive:false});
     cv.addEventListener('pointerup',   onPointerUp,   {passive:false});
     cv.addEventListener('pointercancel', ()=> resetPointerState(), {passive:true});
-    // どこで指を離しても最終的に状態をクリア（オーバーレイ上で離したケースを救済）
-    document.addEventListener('pointerup', ()=> resetPointerState(), {capture:true, passive:true});
-    window.addEventListener('blur', ()=> resetPointerState());
+  } else {
+    // 互換フォールバック（古いブラウザ用）
+    cv.addEventListener('touchstart', e=>{ if(helpOpen) return; dragging=true; const x=canvasX(e); aimX=clamp(x,LEFT,RIGHT); }, {passive:true});
+    cv.addEventListener('touchmove',  e=>{ if(!dragging) return; const x=canvasX(e); aimX=clamp(x,LEFT,RIGHT); }, {passive:true});
+    cv.addEventListener('touchend',   ()=>{ if(helpOpen) return; drop(); dragging=false; }, {passive:true});
+    cv.addEventListener('mousedown',  e=>{ if(helpOpen) return; dragging=true; const x=canvasX(e); aimX=clamp(x,LEFT,RIGHT); });
+    addEventListener('mousemove',     e=>{ if(!dragging) return; const x=canvasX(e); aimX=clamp(x,LEFT,RIGHT); });
+    addEventListener('mouseup',       ()=>{ if(helpOpen) return; if(dragging) drop(); dragging=false; });
   }
 
   resetBtn.addEventListener('click', reset);
@@ -298,7 +295,7 @@
     restore(undoState); undoState=null; toast('1手戻しました');
   }
   function drop(){
-    if (helpOpen || over || cooldown>0) return;
+    if (over || cooldown>0) return;
     if (balls.length>=MAX_BALLS){ toast('いっぱいです。合体で減らそう！'); return; }
     undoState = snapshot();
     const val = next, r = radiusFor(val);
@@ -307,14 +304,14 @@
     score += val; next = randSmall(); cooldown = .18; updateHUD();
   }
 
-  // ===== physics step =====
+  // ===== physics =====
   function step(dt){
     cooldown = Math.max(0, cooldown-dt);
     for (const b of balls){
       b.vy += G*dt;
       b.vx *= FRICTION; b.vy *= FRICTION;
-      b.vx = clamp(b.vx, -VX_MAX, VX_MAX);
-      b.vy = clamp(b.vy, -VY_MAX, VY_MAX);
+      b.vx = clamp(b.vx, -900, 900);
+      b.vy = clamp(b.vy, -2200, 2200);
       b.x  += b.vx*dt;  b.y  += b.vy*dt;
 
       if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -Math.abs(b.vx)*(1-REST); }
@@ -327,26 +324,24 @@
       if (b.y - b.r < 0) topDanger += dt;
     }
 
-    // 衝突（非弾性寄り）
+    // 非弾性衝突
     for (let i=0;i<balls.length;i++){
       for (let j=i+1;j<balls.length;j++){
-        const A = balls[i], B = balls[j];
-        const dx = B.x - A.x, dy = B.y - A.y;
-        const dist = Math.hypot(dx,dy), minD = A.r + B.r;
-        if (dist>0 && dist < minD){
-          const nx = dx/dist, ny = dy/dist, overlap = (minD - dist);
-          A.x -= nx*overlap*0.5; A.y -= ny*overlap*0.5;
-          B.x += nx*overlap*0.5; B.y += ny*overlap*0.5;
-          const rvx = B.vx - A.vx, rvy = B.vy - A.vy;
-          const vn = rvx*nx + rvy*ny, imp = -vn*0.28;
-          A.vx -= imp*nx; A.vy -= imp*ny; B.vx += imp*nx; B.vy += imp*ny;
+        const A=balls[i], B=balls[j];
+        const dx=B.x-A.x, dy=B.y-A.y, dist=Math.hypot(dx,dy), minD=A.r+B.r;
+        if (dist>0 && dist<minD){
+          const nx=dx/dist, ny=dy/dist, overlap=minD-dist;
+          A.x-=nx*overlap*0.5; A.y-=ny*overlap*0.5;
+          B.x+=nx*overlap*0.5; B.y+=ny*overlap*0.5;
+          const rvx=B.vx-A.vx, rvy=B.vy-A.vy, vn=rvx*nx+rvy*ny, imp=-vn*0.28;
+          A.vx-=imp*nx; A.vy-=imp*ny; B.vx+=imp*nx; B.vy+=imp*ny;
         }
       }
     }
 
     // 即時合体（多段パス）
-    let mergedAny, pass=0;
-    do{ mergedAny = tryMerges(); pass++; } while(mergedAny && pass<8);
+    let merged, pass=0;
+    do{ merged = tryMerges(); pass++; } while(merged && pass<8);
 
     for (const r of rings){ r.t += dt; }
     rings = rings.filter(r=>r.t<0.9);
@@ -356,30 +351,29 @@
   }
 
   function tryMerges(){
-    const removed = new Set(); let changed = false;
+    const removed=new Set(); let changed=false;
     for (let i=0;i<balls.length;i++){
-      const A = balls[i]; if (removed.has(A.id)) continue;
+      const A=balls[i]; if (removed.has(A.id)) continue;
       for (let j=i+1;j<balls.length;j++){
-        const B = balls[j]; if (removed.has(B.id)) continue;
-        const dx = B.x - A.x, dy = B.y - A.y;
-        const dist = Math.hypot(dx,dy), slack = 2;
+        const B=balls[j]; if (removed.has(B.id)) continue;
+        const dx=B.x-A.x, dy=B.y-A.y, dist=Math.hypot(dx,dy), slack=2;
         if (dist <= A.r + B.r - slack){
           let outVal=null;
-          if (A.val<10 && B.val<10 && A.val + B.val === 10) outVal = 10;
-          else if (A.val>=10 && A.val === B.val) outVal = A.val * 2;
+          if (A.val<10 && B.val<10 && A.val+B.val===10) outVal=10;
+          else if (A.val>=10 && A.val===B.val) outVal=A.val*2;
           if (outVal!==null){
-            const nx = (A.x+B.x)/2, ny=(A.y+B.y)/2;
-            const nr = radiusFor(outVal);
+            const nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
+            const nr=radiusFor(outVal);
             balls.push({x:nx,y:ny,vx:(A.vx+B.vx)*0.1,vy:(A.vy+B.vy)*0.1,r:nr,val:outVal,id:idSeq++});
             removed.add(A.id); removed.add(B.id);
             rings.push({x:nx,y:ny,t:0,col: outVal<10? smallColor(outVal) : bigColor(outVal)});
-            if (outVal===10) score += 25; else score += Math.max(30,outVal);
-            changed = true; break;
+            if (outVal===10) score+=25; else score+=Math.max(30,outVal);
+            changed=true; break;
           }
         }
       }
     }
-    if (removed.size){ balls = balls.filter(b=>!removed.has(b.id)); updateHUD(); }
+    if (removed.size){ balls=balls.filter(b=>!removed.has(b.id)); updateHUD(); }
     return changed;
   }
 
@@ -429,18 +423,14 @@
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
-  // ===== toast =====
+  // ===== toast & loop =====
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1300); }
-
-  // ===== loop =====
   let acc=0, last=performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now; acc += dt;
     while(acc>DT){ step(DT); acc-=DT; }
     draw(); requestAnimationFrame(loop);
   }
-
-  // boot
   reset(); updateHUD(); requestAnimationFrame(loop);
 })();
 </script>
@@ -449,7 +439,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v15';
+    const CACHE='10game-decamerge-v16';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
