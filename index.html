@@ -1,430 +1,399 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>🌕 つきだま - Tsukidama</title>
-  <meta name="theme-color" content="#0b1020">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no">
+<title>🍉 Fruit Merge (PWA, 1-file)</title>
+<meta name="theme-color" content="#fffbf3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- シンプル白PNG(1x1) アイコン：必要に応じ差し替えOK -->
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
 
-  <!-- アイコン（簡易：1x1 PNGの白、data URL。必要なら後で差し替え可） -->
-  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
+<!-- Manifest を inlined（iOSではなくAndroid系向けだが念のため） -->
+<script type="application/manifest+json">
+{
+  "name": "Fruit Merge",
+  "short_name": "FruitMerge",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fffbf3",
+  "theme_color": "#fffbf3",
+  "icons": [
+    {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes":"192x192","type":"image/png"}
+  ]
+}
+</script>
 
-  <!-- Web App Manifest（data URL アイコンを内蔵） -->
-  <script type="application/manifest+json">
-  {
-    "name": "つきだま - Tsukidama",
-    "short_name": "つきだま",
-    "start_url": ".",
-    "display": "standalone",
-    "background_color": "#0b1020",
-    "theme_color": "#0b1020",
-    "icons": [
-      {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes": "192x192", "type": "image/png"}
-    ]
+<style>
+  :root{
+    --bg1:#fffbf3; --bg2:#fff0d7; --ink:#2a2a33; --ink2:#60606b;
+    --chip:#ffffff; --line:#e9e2d6; --accent:#ff6b6b; --accent2:#00b894;
   }
-  </script>
-
-  <style>
-    html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Helvetica Neue", Arial, sans-serif; }
-    #wrap { display:flex; flex-direction:column; height:100%; }
-    header { padding:10px 12px; display:flex; align-items:center; justify-content:space-between; }
-    .title { font-weight:700; letter-spacing:0.04em; }
-    .btn { background:#1b2450; border:none; color:#fff; padding:8px 12px; border-radius:10px; font-size:14px; }
-    .row { display:flex; align-items:center; gap:8px; }
-    #game { flex:1; display:flex; align-items:center; justify-content:center; }
-    canvas { touch-action: none; }
-    footer { padding:10px 12px; display:flex; justify-content:space-between; align-items:center; font-size:14px; }
-    .chip { background:#142042; border-radius:8px; padding:6px 10px; }
-  </style>
+  html,body{margin:0;height:100%;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Helvetica Neue",Arial,sans-serif;}
+  #wrap{display:flex;flex-direction:column;height:100%;}
+  header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .row{display:flex;align-items:center;gap:8px}
+  .title{font-weight:800;letter-spacing:.02em}
+  .btn{border:none;border-radius:12px;padding:8px 12px;background:#222;color:#fff;font-weight:700}
+  .btn.ghost{background:#fff;color:#222;border:1px solid var(--line)}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+  #stage{flex:1;display:flex;align-items:center;justify-content:center}
+  canvas{touch-action:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 30px rgba(0,0,0,.08)}
+  footer{padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .hint{color:var(--ink2)}
+  .badge{background:#111;color:#fff;border-radius:10px;padding:4px 8px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
+         background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  /* help */
+  #help{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:18px}
+  #help .card{max-width:520px;background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line);color:#222}
+  #help h3{margin:.2em 0 .4em 0}
+  #help li{margin:.25em 0}
+</style>
 </head>
 <body>
-  <div id="wrap">
-    <header>
-      <div class="row">
-        <div class="title">🌕 つきだま</div>
-        <div id="version" class="chip">one-file v1.0</div>
-      </div>
-      <div class="row">
-        <button id="resetBtn" class="btn">リセット</button>
-      </div>
-    </header>
-
-    <div id="game">
-      <canvas id="canvas" width="390" height="690" aria-label="Tsukidama game canvas"></canvas>
+<div id="wrap">
+  <header>
+    <div class="row">
+      <div class="title">🍉 Fruit Merge</div>
+      <div id="ver" class="chip">PWA one-file v2</div>
     </div>
+    <div class="row">
+      <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
+      <div class="chip">Next: <b id="nextName">-</b></div>
+      <button id="helpBtn" class="btn ghost">遊び方</button>
+      <button id="resetBtn" class="btn">リセット</button>
+    </div>
+  </header>
 
-    <footer>
-      <div class="chip">スコア: <span id="score">0</span> / ベスト: <span id="best">0</span></div>
-      <div class="chip">次: <span id="nextLabel">-</span></div>
-    </footer>
+  <div id="stage">
+    <canvas id="cv" width="360" height="640" aria-label="Fruit Merge game canvas"></canvas>
   </div>
 
-  <!-- ======== ゲームロジック（script.js 相当） ======== -->
-  <script>
-  (() => {
-    const cvs = document.getElementById('canvas');
-    const ctx = cvs.getContext('2d');
-    const scoreEl = document.getElementById('score');
-    const bestEl = document.getElementById('best');
-    const nextLabel = document.getElementById('nextLabel');
-    const resetBtn = document.getElementById('resetBtn');
+  <footer>
+    <div class="hint">指を左右にスライド → 狙った位置で<span class="badge">タップ</span>でフルーツ投下</div>
+    <div class="hint">上に突き抜けたら<strong>ゲームオーバー</strong>。同じフルーツがくっつくと<span style="color:var(--accent)">進化</span>！</div>
+  </footer>
+</div>
 
-    // 盤設定
-    const COLS = 7;
-    const ROWS = 12;
-    const LEVEL_MAX = 5; // 0..5（5が満月・爆発）
-    const CELL_MARGIN = 2;
+<div id="help">
+  <div class="card">
+    <h3>🎮 遊び方</h3>
+    <ol>
+      <li>画面を左右にスワイプすると「照準（白い丸）」が動きます。</li>
+      <li>狙った位置でタップすると、フルーツが落ちます。</li>
+      <li>同じ種類が<strong>触れ合う</strong>＋<strong>スピードが遅い</strong>と合体して一段階進化。</li>
+      <li>大きくなるほど点が高い！連続で進化させるとコンボが起きやすい。</li>
+      <li>フルーツが上の赤線を越えた状態が続くと<strong>ゲームオーバー</strong>。</li>
+    </ol>
+    <p class="hint">ヒント：左右の壁や他のフルーツで<b>バウンド</b>します。角度をつけて着地させると安定して積めます。</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="closeHelp" class="btn">OK</button>
+    </div>
+  </div>
+</div>
 
-    // 緩やかな“風”（左右スウェイ）
-    let wind = 1;       // -1 左 / 1 右
-    let windTimer = 0;
+<div id="toast" class="toast"></div>
 
-    // 状態
-    let grid;
-    let score = 0;
-    let nextPiece = randPiece();
-    let over = false;
+<script>
+(() => {
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const bestEl  = document.getElementById('best');
+  const nextNameEl = document.getElementById('nextName');
+  const resetBtn = document.getElementById('resetBtn');
+  const helpBtn = document.getElementById('helpBtn');
+  const helpModal = document.getElementById('help');
+  const closeHelp = document.getElementById('closeHelp');
+  const toastEl = document.getElementById('toast');
 
-    function cellSize() {
-      const pad = 16;
-      const availW = Math.min(window.innerWidth, 520) - pad * 2;
-      const size = Math.floor(availW / COLS);
-      const h = size * ROWS;
-      cvs.width = size * COLS;
-      cvs.height = h;
-      return size;
-    }
-    let SIZE = cellSize();
-    window.addEventListener('resize', () => {
-      SIZE = cellSize();
-      draw();
-    });
-
-    function init() {
-      grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
-      score = 0;
-      nextPiece = randPiece();
-      over = false;
-      loadBest();
-      draw();
-      nextLabel.textContent = phaseName(nextPiece);
-    }
-
-    function loadBest() {
-      bestEl.textContent = Number(localStorage.getItem('tsukidama_best') || 0);
-    }
-    function saveBest() {
-      const best = Number(localStorage.getItem('tsukidama_best') || 0);
-      if (score > best) localStorage.setItem('tsukidama_best', score);
-      loadBest();
-    }
-
-    function randPiece() {
-      // 低レベルが出やすい（ゲーム序盤のやさしさ）
-      const r = Math.random();
-      if (r < 0.60) return 0;
-      if (r < 0.88) return 1;
-      if (r < 0.97) return 2;
-      return 3;
-    }
-
-    function dropAt(col) {
-      if (over) return;
-      // 落下先の行を探す
-      let r = ROWS - 1;
-      while (r >= 0 && grid[r][col] !== null) r--;
-      if (r < 0) {
-        // 置けない＝天井 → ゲームオーバー
-        over = true;
-        saveBest();
-        toast("ゲームオーバー！リセットで再挑戦👍");
-        draw();
-        return;
-      }
-      grid[r][col] = nextPiece;
-      score += (nextPiece + 1) * 2;
-      nextPiece = randPiece();
-      nextLabel.textContent = phaseName(nextPiece);
-      settle();
-    }
-
-    function phaseName(n) {
-      return ["新月","三日月","半月","十三夜","満月直前","満月"][n] || String(n);
-    }
-
-    function settle() {
-      // 重力（＋斜めのスウェイ）
-      let moved;
-      let iterations = 0;
-      do {
-        moved = false;
-        windTimer++;
-        if (windTimer % 16 === 0) wind *= -1;
-        for (let r = ROWS - 2; r >= 0; r--) {
-          for (let c = 0; c < COLS; c++) {
-            const v = grid[r][c];
-            if (v === null) continue;
-            if (grid[r+1][c] === null) {
-              grid[r+1][c] = v; grid[r][c] = null; moved = true;
-            } else {
-              // 風向きに斜め落下を試す
-              const dc = wind;
-              const nc = c + dc;
-              if (nc >= 0 && nc < COLS && grid[r+1][nc] === null && grid[r][nc] === null) {
-                grid[r+1][nc] = v; grid[r][c] = null; moved = true;
-              }
-            }
-          }
-        }
-        iterations++;
-      } while (moved && iterations < 200);
-
-      // 合体（同レベルが3つ以上の連結成分）
-      let combo = 0;
-      while (true) {
-        const marked = [];
-        for (let i=0;i<ROWS;i++) marked.push(Array(COLS).fill(false));
-        const toMerge = []; // {cells:[[r,c],...], level}
-
-        for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-          const v = grid[r][c];
-          if (v===null || marked[r][c]) continue;
-          const comp = [];
-          const q = [[r,c]];
-          marked[r][c]=true;
-          while (q.length) {
-            const [rr,cc] = q.pop();
-            comp.push([rr,cc]);
-            const nbrs = [[1,0],[-1,0],[0,1],[0,-1]];
-            for (const [dr,dc] of nbrs) {
-              const nr=rr+dr, nc=cc+dc;
-              if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!marked[nr][nc]&&grid[nr][nc]===v) {
-                marked[nr][nc]=true;
-                q.push([nr,nc]);
-              }
-            }
-          }
-          if (comp.length >= 3) {
-            toMerge.push({cells:comp, level:v});
-          }
-        }
-
-        if (toMerge.length===0) break;
-
-        combo++;
-        let boomCenters = [];
-        for (const g of toMerge) {
-          // 結果を置くセル＝もっとも下（同列なら右）
-          let target = g.cells[0];
-          for (const [r,c] of g.cells) {
-            if (r > target[0] || (r===target[0] && c>target[1])) target=[r,c];
-          }
-          // すべて消して1段階上を target に置く
-          for (const [r,c] of g.cells) grid[r][c]=null;
-          const newLevel = Math.min(g.level+1, LEVEL_MAX);
-          const [tr,tc]=target;
-          grid[tr][tc]=newLevel;
-
-          const base = (g.level+1) * g.cells.length * (10 + combo*5);
-          score += base;
-
-          // 満月なら爆発予約
-          if (newLevel===LEVEL_MAX) boomCenters.push([tr,tc]);
-        }
-
-        // 満月爆発（3x3消去）
-        for (const [r,c] of boomCenters) {
-          for (let dr=-1; dr<=1; dr++) for (let dc=-1; dc<=1; dc++) {
-            const nr=r+dr, nc=c+dc;
-            if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) {
-              if (!(nr===r && nc===c)) {
-                if (grid[nr][nc]!==null) score += 8*(combo+1);
-                grid[nr][nc]=null;
-              }
-            }
-          }
-        }
-
-        // 合体後の落下
-        let moved2, guard=0;
-        do {
-          moved2=false;
-          for (let r=ROWS-2;r>=0;r--) for (let c=0;c<COLS;c++) {
-            const v=grid[r][c];
-            if (v!==null && grid[r+1][c]===null) {
-              grid[r+1][c]=v; grid[r][c]=null; moved2=true;
-            }
-          }
-          guard++;
-        } while (moved2 && guard<200);
-      }
-
-      scoreEl.textContent = score;
-      saveBest();
-      draw();
-
-      // 天井チェック
-      for (let c=0;c<COLS;c++) if (grid[0][c]!==null) { over = true; break; }
-      if (over) toast("ゲームオーバー！リセットで再挑戦👍");
-    }
-
-    function drawCell(r,c,v) {
-      const x = c * SIZE, y = r * SIZE;
-      const cx = x + SIZE/2, cy = y + SIZE/2;
-      const rad = (SIZE - CELL_MARGIN*2)/2;
-
-      // 背景セル
-      ctx.fillStyle = '#0f1735';
-      ctx.fillRect(x+1, y+1, SIZE-2, SIZE-2);
-
-      if (v===null) return;
-
-      // レベルに応じた月色
-      const palette = ['#8aa5ff','#b3d1ff','#ffe08a','#ffd1e3','#baffc9','#ffffff'];
-      ctx.beginPath();
-      ctx.arc(cx, cy, rad, 0, Math.PI*2);
-      ctx.fillStyle = palette[Math.min(v, palette.length-1)];
-      ctx.fill();
-
-      // 位相の影
-      ctx.beginPath();
-      const phase = v / (LEVEL_MAX);
-      ctx.arc(cx - rad*0.3, cy, rad*0.9, -Math.PI/2, Math.PI/2, false);
-      ctx.globalAlpha = 0.18 + phase*0.15;
-      ctx.fillStyle = '#000';
-      ctx.fill();
-      ctx.globalAlpha = 1;
-
-      // ラベル
-      ctx.fillStyle = '#172042';
-      ctx.font = `${Math.floor(SIZE*0.32)}px system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(String(v), cx, cy);
-    }
-
-    function drawGrid() {
-      ctx.fillStyle = '#0b1020';
-      ctx.fillRect(0,0,cvs.width,cvs.height);
-      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
-        drawCell(r,c,grid[r][c]);
-      }
-      // 列のガイド
-      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-      for (let c=1;c<COLS;c++) {
-        ctx.beginPath();
-        ctx.moveTo(c*SIZE, 0); ctx.lineTo(c*SIZE, cvs.height);
-        ctx.stroke();
-      }
-    }
-
-    function drawHUD() {
-      // 軽いトップオーバーレイ
-      ctx.fillStyle = 'rgba(20,25,55,0.6)';
-      ctx.fillRect(0,0,cvs.width, Math.floor(SIZE*0.9));
-
-      if (over) {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0,0,cvs.width,cvs.height);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.font = `bold ${Math.floor(SIZE*0.6)}px system-ui`;
-        ctx.fillText('GAME OVER', cvs.width/2, cvs.height*0.42);
-        ctx.font = `${Math.floor(SIZE*0.35)}px system-ui`;
-        ctx.fillText('タップで列を選んでドロップ', cvs.width/2, cvs.height*0.60);
-      }
-    }
-
-    function draw() {
-      drawGrid();
-      drawHUD();
-    }
-
-    // 入力（タップ/クリックで列選択）
-    function handlePos(clientX) {
-      const rect = cvs.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const col = Math.max(0, Math.min(COLS-1, Math.floor(x / SIZE)));
-      return col;
-    }
-    cvs.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      const touch = e.changedTouches[0];
-      const col = handlePos(touch.clientX);
-      dropAt(col);
-      draw();
-    }, {passive:false});
-    cvs.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive:false});
-    cvs.addEventListener('mousedown', (e) => {
-      const col = handlePos(e.clientX);
-      dropAt(col);
-    });
-
-    // トースト表示
-    let toastTimer = 0, toastMsg = '';
-    function toast(msg) {
-      toastMsg = msg; toastTimer = 90;
-    }
-    function drawToast() {
-      if (toastTimer > 0) {
-        toastTimer--;
-        ctx.save();
-        ctx.globalAlpha = Math.min(1, toastTimer/20);
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        const w = cvs.width * 0.9, h = 44;
-        ctx.fillRect((cvs.width-w)/2, cvs.height*0.75, w, h);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.font = '16px system-ui';
-        ctx.fillText(toastMsg, cvs.width/2, cvs.height*0.75 + h/2);
-        ctx.restore();
-      }
-    }
-
-    // ループ（HUD/トーストの描画）
-    function loop() {
-      draw();
-      drawToast();
-      requestAnimationFrame(loop);
-    }
-
-    // ボタン
-    resetBtn.addEventListener('click', () => init());
-
-    // 開始
-    init();
-    loop();
-  })();
-  </script>
-
-  <!-- ======== Service Worker（sw.js 相当を動的生成） ======== -->
-  <script>
-  if ('serviceWorker' in navigator) {
-    const swCode = `
-      const CACHE = 'tsukidama-onefile-v1';
-      const ASSETS = ['./'];
-
-      self.addEventListener('install', (e) => {
-        e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
-        self.skipWaiting();
-      });
-
-      self.addEventListener('activate', (e) => {
-        e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k!==CACHE && caches.delete(k)))));
-        self.clients.claim();
-      });
-
-      self.addEventListener('fetch', (e) => {
-        e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
-      });
-    `;
-    const blob = new Blob([swCode], { type: 'application/javascript' });
-    const swURL = URL.createObjectURL(blob);
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register(swURL);
-    });
+  // 画面サイズに合わせて Canvas スケール
+  function fit(){
+    const pad = 16;
+    const w = Math.min(innerWidth - pad*2, 420);
+    const ratio = w / cv.width;
+    cv.style.width = w + 'px';
+    cv.style.height = (cv.height * ratio) + 'px';
   }
-  </script>
+  addEventListener('resize', fit); fit();
+
+  // 物理＆ゲーム定数
+  const W = cv.width, H = cv.height;
+  const LEFT = 20, RIGHT = W-20, FLOOR = H-12, CEIL = 80; // CEIL: 赤いゲームオーバーライン
+  const G = 1400;             // 重力(px/s^2)
+  const DT = 1/60;            // 物理タイムステップ
+  const REST = 0.02;          // 反発係数(低いほど弾まない)
+  const FRICTION = 0.995;     // 摩擦
+  const MAX_BALLS = 70;
+
+  let score = 0, over = false, cooldown = 0, timeTopDanger = 0;
+  let aimX = (LEFT+RIGHT)/2;
+
+  // フルーツ定義（小→大）
+  const FRUITS = [
+    {name:'チェリー', r:14, color:'#ff7ea8'},
+    {name:'ぶどう',   r:18, color:'#a37bff'},
+    {name:'すもも',   r:22, color:'#ff8dd1'},
+    {name:'レモン',   r:28, color:'#ffe066'},
+    {name:'みかん',   r:36, color:'#ffb347'},
+    {name:'りんご',   r:46, color:'#ff6b6b'},
+    {name:'ラ・フランス', r:58, color:'#8bd86b'},
+    {name:'メロン',   r:74, color:'#4ad9a3'},
+    {name:'パイナップル', r:92, color:'#ffdd57'},
+    {name:'スイカ',   r:116,color:'#22c55e'}
+  ];
+  let nextLevel = randNextLevel();
+
+  // 状態
+  /** @type {{x:number,y:number,vx:number,vy:number,r:number,lv:number,mergeLock:number}[]} */
+  let balls = [];
+  let rings = []; // 演出用リング
+
+  function reset(){
+    score = 0; over = false; cooldown = 0; timeTopDanger = 0; balls = []; rings=[];
+    nextLevel = randNextLevel();
+    updateHUD();
+  }
+
+  function updateHUD(){
+    scoreEl.textContent = score|0;
+    const best = +(localStorage.getItem('fruit_merge_best')||0);
+    if (score>best) localStorage.setItem('fruit_merge_best', score|0);
+    bestEl.textContent = localStorage.getItem('fruit_merge_best') || 0;
+    nextNameEl.textContent = FRUITS[nextLevel].name;
+  }
+  reset();
+
+  function randNextLevel(){
+    const r = Math.random();
+    if (r<0.55) return 0;
+    if (r<0.85) return 1;
+    if (r<0.96) return 2;
+    return 3;
+  }
+
+  function drop(){
+    if (over) return;
+    if (cooldown>0) return;
+    if (balls.length>=MAX_BALLS){ toast("いっぱいです。合体で減らそう！"); return; }
+    const f = FRUITS[nextLevel];
+    const x = clamp(aimX, LEFT+f.r+1, RIGHT-f.r-1);
+    const b = {x, y: CEIL-30, vx:0, vy:0, r:f.r, lv:nextLevel, mergeLock:0};
+    balls.push(b);
+    cooldown = .25; // 次の投入まで少し待つ
+    nextLevel = randNextLevel();
+    updateHUD();
+  }
+
+  // タッチ/マウス
+  function canvasX(e){
+    const rect = cv.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return (clientX - rect.left) * (cv.width / rect.width);
+  }
+  cv.addEventListener('touchstart', e=>{ aimX = canvasX(e); drop(); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('touchmove', e=>{ aimX = canvasX(e); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mousedown', e=>{ aimX = canvasX(e); drop(); });
+
+  resetBtn.addEventListener('click', reset);
+  helpBtn.addEventListener('click', ()=> helpModal.style.display='flex');
+  closeHelp.addEventListener('click', ()=> helpModal.style.display='none');
+
+  function clamp(v,min,max){ return v<min?min:(v>max?max:v); }
+
+  // ====== 物理シミュレーション ======
+  function step(dt){
+    cooldown = Math.max(0,cooldown-dt);
+
+    // 重力
+    for(const b of balls){
+      b.vy += G*dt;
+      b.vx *= FRICTION; b.vy *= FRICTION;
+      b.x  += b.vx*dt;  b.y  += b.vy*dt;
+
+      // 壁
+      if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -b.vx*(1-REST); }
+      if (b.x + b.r > RIGHT){ b.x = RIGHT - b.r; b.vx = -b.vx*(1-REST); }
+      // 床
+      if (b.y + b.r > FLOOR){
+        b.y = FLOOR - b.r;
+        if (Math.abs(b.vy) < 40) b.vy = 0; else b.vy = -b.vy*(1-REST);
+      }
+      // 天井（上の赤い線より上に出たままなら危険カウント）
+      if (b.y - b.r < 0) timeTopDanger += dt;
+    }
+
+    // 球同士の衝突解消（積みやすいように非弾性）
+    for(let i=0;i<balls.length;i++){
+      for(let j=i+1;j<balls.length;j++){
+        const A = balls[i], B = balls[j];
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const dist = Math.hypot(dx,dy);
+        const minDist = A.r + B.r;
+        if (dist>0 && dist<minDist){
+          const overlap = (minDist - dist);
+          const nx = dx/dist, ny = dy/dist;
+          // 2つを半分ずつ押し分け
+          A.x -= nx*overlap*0.5; A.y -= ny*overlap*0.5;
+          B.x += nx*overlap*0.5; B.y += ny*overlap*0.5;
+          // 速度を法線方向に弱く反発
+          const rvx = B.vx - A.vx, rvy = B.vy - A.vy;
+          const vn = rvx*nx + rvy*ny;
+          const imp = -vn*0.5;
+          A.vx -= imp*nx; A.vy -= imp*ny;
+          B.vx += imp*nx; B.vy += imp*ny;
+        }
+      }
+    }
+
+    // 合体（同レベル & 接触 & 相対速度が小さい）
+    const toRemove = new Set(); let merged = false;
+    for(let i=0;i<balls.length;i++){
+      const A = balls[i];
+      if(toRemove.has(i) || A.mergeLock>0) continue;
+      for(let j=i+1;j<balls.length;j++){
+        const B = balls[j];
+        if(toRemove.has(j)||B.mergeLock>0) continue;
+        if(A.lv!==B.lv) continue;
+        const dx=B.x-A.x, dy=B.y-A.y, dist=Math.hypot(dx,dy);
+        if(dist < A.r+B.r - 2){
+          const rel = Math.hypot(B.vx-A.vx, B.vy-A.vy);
+          if (rel < 80){ // ゆっくりなら合体
+            const lv = Math.min(A.lv+1, FRUITS.length-1);
+            const f = FRUITS[lv];
+            const nx = (A.x + B.x)/2, ny = (A.y + B.y)/2;
+            balls.push({x:nx,y:ny,vx:(A.vx+B.vx)/2,vy:(A.vy+B.vy)/2,r:f.r,lv,mergeLock:0});
+            rings.push({x:nx,y:ny,r: f.r*0.6, t:0, col:f.color});
+            toRemove.add(i); toRemove.add(j);
+            score += Math.pow(2, lv+1) * 5;
+            merged = true;
+            break;
+          }
+        }
+      }
+    }
+    if(merged){
+      // 一瞬は再合体しないロック
+      balls.forEach(b=>b.mergeLock=Math.max(0,b.mergeLock-1));
+    }
+    // 削除
+    if(toRemove.size){
+      balls = balls.filter((_,idx)=>!toRemove.has(idx));
+    }
+    balls.forEach(b=>{ if(b.mergeLock>0) b.mergeLock--; });
+
+    // ゲームオーバー判定：上端から出た状態が続く
+    if (timeTopDanger > 1.2 && !over){ over=true; toast("GAME OVER! リセットで再挑戦"); }
+    if (!balls.some(b=>b.y-b.r<0)) timeTopDanger = 0;
+  }
+
+  // ====== 描画 ======
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+
+    // バック（淡色）
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,W,H);
+
+    // 枠
+    ctx.strokeStyle = '#e9e2d6'; ctx.lineWidth = 2;
+    roundRect(ctx, LEFT-6, 6, RIGHT-LEFT+12, FLOOR-6, 14); ctx.stroke();
+
+    // 危険ライン
+    ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
+
+    // 照準
+    const fN = FRUITS[nextLevel];
+    const ax = clamp(aimX, LEFT+fN.r+1, RIGHT-fN.r-1);
+    ctx.globalAlpha = 0.25;
+    drawFruit(ax, CEIL-30, fN.r, nextLevel);
+    ctx.globalAlpha = 1;
+
+    // フルーツ
+    for(const b of balls){ drawFruit(b.x,b.y,b.r,b.lv); }
+
+    // 合体リング
+    for(const r of rings){
+      r.t += 1/60;
+      ctx.globalAlpha = Math.max(0, 1-r.t);
+      ctx.strokeStyle = r.col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(r.x,r.y, r.r + r.t*28, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    rings = rings.filter(r=>r.t<1);
+
+    // Over表示
+    if (over){
+      ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font = 'bold 36px system-ui'; ctx.fillText('GAME OVER', W/2, H*0.42);
+      ctx.font = '16px system-ui'; ctx.fillText('リセットで再挑戦', W/2, H*0.56);
+    }
+  }
+
+  function drawFruit(x,y,r,lv){
+    const col = FRUITS[lv].color;
+    // 本体
+    const grad = ctx.createRadialGradient(x-r*0.5,y-r*0.5,r*0.3, x,y,r);
+    grad.addColorStop(0,'#fff'); grad.addColorStop(1,col);
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    // 輪郭
+    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+    // ハイライト
+    ctx.beginPath(); ctx.arc(x-r*0.4,y-r*0.4, r*0.35, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y);
+    c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r);
+    c.arcTo(x,y,x+w,y,r); c.closePath(); }
+
+  // ====== ループ ======
+  let acc = 0, last = performance.now();
+  function loop(now){
+    const dt = (now-last)/1000; last = now; acc += dt;
+    while(acc>DT){ step(DT); acc-=DT; }
+    draw();
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  // ユーティリティ
+  function toast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    setTimeout(()=>toastEl.classList.remove('show'), 1500);
+  }
+})();
+</script>
+
+<!-- ====== Service Worker をその場で生成・登録（オフライン化） ====== -->
+<script>
+if ('serviceWorker' in navigator) {
+  const code = `
+    const CACHE='fruit-merge-onefile-v2';
+    self.addEventListener('install',e=>{
+      e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate',e=>{
+      e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE&&caches.delete(k)))));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch',e=>{
+      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+    });
+  `;
+  const blob = new Blob([code], {type:'application/javascript'});
+  const url = URL.createObjectURL(blob);
+  addEventListener('load', ()=> navigator.serviceWorker.register(url));
+}
+</script>
 </body>
 </html>
