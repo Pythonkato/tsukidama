@@ -3,93 +3,95 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no">
-<title>🍉 Fruit Merge (PWA, 1-file)</title>
-<meta name="theme-color" content="#fffbf3">
+<title>🔟 TenDrop - 10ドロップ（PWA, 1-file）</title>
+<meta name="theme-color" content="#fffdf7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<!-- シンプル白PNG(1x1) アイコン：必要に応じ差し替えOK -->
+
+<!-- シンプル1px白PNG（後で差し替え可） -->
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
 
-<!-- Manifest を inlined（iOSではなくAndroid系向けだが念のため） -->
+<!-- Manifest（内蔵） -->
 <script type="application/manifest+json">
 {
-  "name": "Fruit Merge",
-  "short_name": "FruitMerge",
+  "name": "TenDrop - 10ドロップ",
+  "short_name": "TenDrop",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#fffbf3",
-  "theme_color": "#fffbf3",
+  "background_color": "#fffdf7",
+  "theme_color": "#fffdf7",
   "icons": [
-    {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes":"192x192","type":"image/png"}
+    {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes": "192x192", "type":"image/png"}
   ]
 }
 </script>
 
 <style>
   :root{
-    --bg1:#fffbf3; --bg2:#fff0d7; --ink:#2a2a33; --ink2:#60606b;
-    --chip:#ffffff; --line:#e9e2d6; --accent:#ff6b6b; --accent2:#00b894;
+    --bg1:#fffdf7; --bg2:#fff3d6; --line:#e9e2d6; --ink:#222; --ink2:#666;
+    --chip:#fff; --acc:#00b894; --danger:#ff6b6b;
+    --c1:#ff7675; --c2:#fab1a0; --c3:#ffeaa7; --c4:#55efc4; --c5:#81ecec;
+    --c6:#74b9ff; --c7:#a29bfe; --c8:#fd79a8; --c9:#fdcb6e;
   }
   html,body{margin:0;height:100%;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Helvetica Neue",Arial,sans-serif;}
   #wrap{display:flex;flex-direction:column;height:100%;}
-  header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .row{display:flex;align-items:center;gap:8px}
   .title{font-weight:800;letter-spacing:.02em}
-  .btn{border:none;border-radius:12px;padding:8px 12px;background:#222;color:#fff;font-weight:700}
-  .btn.ghost{background:#fff;color:#222;border:1px solid var(--line)}
+  .btn{border:none;border-radius:12px;padding:8px 12px;background:#111;color:#fff;font-weight:700}
+  .btn.ghost{background:#fff;color:#111;border:1px solid var(--line)}
   .chip{background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
   #stage{flex:1;display:flex;align-items:center;justify-content:center}
   canvas{touch-action:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 30px rgba(0,0,0,.08)}
   footer{padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
   .hint{color:var(--ink2)}
-  .badge{background:#111;color:#fff;border-radius:10px;padding:4px 8px}
-  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);
-         background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s;pointer-events:none}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s;pointer-events:none}
   .toast.show{opacity:1}
-  /* help */
   #help{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:18px}
   #help .card{max-width:520px;background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line);color:#222}
   #help h3{margin:.2em 0 .4em 0}
   #help li{margin:.25em 0}
+  .dangerLine{position:absolute;left:50%;transform:translateX(-50%);top:70px;width:min(420px, calc(100% - 32px));height:0;border-top:2px dashed var(--danger);pointer-events:none}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
     <div class="row">
-      <div class="title">🍉 Fruit Merge</div>
-      <div id="ver" class="chip">PWA one-file v2</div>
+      <div class="title">🔟 TenDrop - 10ドロップ</div>
+      <div id="ver" class="chip">PWA one-file v1</div>
     </div>
     <div class="row">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
-      <div class="chip">Next: <b id="nextName">-</b></div>
+      <div class="chip">Next: <b id="nextNum">-</b>（ペア <b id="pairNum">-</b>）</div>
+      <button id="hintBtn" class="btn ghost">ヒント ON</button>
       <button id="helpBtn" class="btn ghost">遊び方</button>
       <button id="resetBtn" class="btn">リセット</button>
     </div>
   </header>
 
-  <div id="stage">
-    <canvas id="cv" width="360" height="640" aria-label="Fruit Merge game canvas"></canvas>
+  <div id="stage" style="position:relative">
+    <div class="dangerLine"></div>
+    <canvas id="cv" width="360" height="640" aria-label="TenDrop game canvas"></canvas>
   </div>
 
   <footer>
-    <div class="hint">指を左右にスライド → 狙った位置で<span class="badge">タップ</span>でフルーツ投下</div>
-    <div class="hint">上に突き抜けたら<strong>ゲームオーバー</strong>。同じフルーツがくっつくと<span style="color:var(--accent)">進化</span>！</div>
+    <div class="hint">列をタップ → 数字の玉を落とす。<b>上下左右で10</b>になったペアは消える。落ちて連鎖で高得点！</div>
   </footer>
 </div>
 
 <div id="help">
   <div class="card">
-    <h3>🎮 遊び方</h3>
+    <h3>🎮 遊び方（10ドロップ）</h3>
     <ol>
-      <li>画面を左右にスワイプすると「照準（白い丸）」が動きます。</li>
-      <li>狙った位置でタップすると、フルーツが落ちます。</li>
-      <li>同じ種類が<strong>触れ合う</strong>＋<strong>スピードが遅い</strong>と合体して一段階進化。</li>
-      <li>大きくなるほど点が高い！連続で進化させるとコンボが起きやすい。</li>
-      <li>フルーツが上の赤線を越えた状態が続くと<strong>ゲームオーバー</strong>。</li>
+      <li>画面の列をタップすると、その列に<strong>数字の玉</strong>が落ちます（1〜9）。</li>
+      <li>上下左右で隣り合う数字が<strong>合計10</strong>になると、<b>そのペアは消滅</b>します。</li>
+      <li>消えた後は上から落ちて、また10になれば<strong>連鎖</strong>！</li>
+      <li><b>Next</b>の右にある「ペア」は10にするための補数（例：Nextが4ならペアは6）。</li>
+      <li>上の破線より上まで詰まると<strong>ゲームオーバー</strong>。ベストは端末に保存されます。</li>
     </ol>
-    <p class="hint">ヒント：左右の壁や他のフルーツで<b>バウンド</b>します。角度をつけて着地させると安定して積めます。</p>
+    <p class="hint">ヒントONにすると、各マスに「10まであといくつ」が薄く表示され、暗算トレーニングになります。</p>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button id="closeHelp" class="btn">OK</button>
     </div>
@@ -100,284 +102,274 @@
 
 <script>
 (() => {
+  // ===== 基本設定 =====
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const scoreEl = document.getElementById('score');
   const bestEl  = document.getElementById('best');
-  const nextNameEl = document.getElementById('nextName');
+  const nextNumEl = document.getElementById('nextNum');
+  const pairNumEl = document.getElementById('pairNum');
   const resetBtn = document.getElementById('resetBtn');
+  const hintBtn = document.getElementById('hintBtn');
   const helpBtn = document.getElementById('helpBtn');
   const helpModal = document.getElementById('help');
   const closeHelp = document.getElementById('closeHelp');
   const toastEl = document.getElementById('toast');
 
-  // 画面サイズに合わせて Canvas スケール
+  // 盤面
+  const COLS = 6, ROWS = 12; // シンプルに
+  const PAD = 16;            // キャンバス左右余白
+  const CEIL_Y = 70;         // 危険ライン（px）
+  let CELL = Math.floor((cv.width - PAD*2)/COLS);
+  const TOP = 90, BOTTOM = cv.height - 16;
+
+  // 状態
+  /** @type {(number|null)[][]} */
+  let grid;
+  let score = 0;
+  let next = randNext();
+  let showHint = true;
+  let over = false;
+
+  // 色（1〜9）
+  const COLORS = {
+    1:'var(--c1)',2:'var(--c2)',3:'var(--c3)',4:'var(--c4)',5:'var(--c5)',
+    6:'var(--c6)',7:'var(--c7)',8:'var(--c8)',9:'var(--c9)'
+  };
+
+  // 画面サイズに合わせた表示スケール
   function fit(){
-    const pad = 16;
-    const w = Math.min(innerWidth - pad*2, 420);
+    const w = Math.min(innerWidth - 32, 420);
     const ratio = w / cv.width;
-    cv.style.width = w + 'px';
-    cv.style.height = (cv.height * ratio) + 'px';
+    cv.style.width = w+'px';
+    cv.style.height = (cv.height*ratio)+'px';
+    CELL = Math.floor((cv.width - PAD*2)/COLS);
   }
   addEventListener('resize', fit); fit();
 
-  // 物理＆ゲーム定数
-  const W = cv.width, H = cv.height;
-  const LEFT = 20, RIGHT = W-20, FLOOR = H-12, CEIL = 80; // CEIL: 赤いゲームオーバーライン
-  const G = 1400;             // 重力(px/s^2)
-  const DT = 1/60;            // 物理タイムステップ
-  const REST = 0.02;          // 反発係数(低いほど弾まない)
-  const FRICTION = 0.995;     // 摩擦
-  const MAX_BALLS = 70;
+  // 初期化
+  function init(){
+    grid = Array.from({length:ROWS}, ()=> Array(COLS).fill(null));
+    score = 0; over = false; next = randNext();
+    updateHUD(); draw();
+  }
 
-  let score = 0, over = false, cooldown = 0, timeTopDanger = 0;
-  let aimX = (LEFT+RIGHT)/2;
-
-  // フルーツ定義（小→大）
-  const FRUITS = [
-    {name:'チェリー', r:14, color:'#ff7ea8'},
-    {name:'ぶどう',   r:18, color:'#a37bff'},
-    {name:'すもも',   r:22, color:'#ff8dd1'},
-    {name:'レモン',   r:28, color:'#ffe066'},
-    {name:'みかん',   r:36, color:'#ffb347'},
-    {name:'りんご',   r:46, color:'#ff6b6b'},
-    {name:'ラ・フランス', r:58, color:'#8bd86b'},
-    {name:'メロン',   r:74, color:'#4ad9a3'},
-    {name:'パイナップル', r:92, color:'#ffdd57'},
-    {name:'スイカ',   r:116,color:'#22c55e'}
-  ];
-  let nextLevel = randNextLevel();
-
-  // 状態
-  /** @type {{x:number,y:number,vx:number,vy:number,r:number,lv:number,mergeLock:number}[]} */
-  let balls = [];
-  let rings = []; // 演出用リング
-
-  function reset(){
-    score = 0; over = false; cooldown = 0; timeTopDanger = 0; balls = []; rings=[];
-    nextLevel = randNextLevel();
-    updateHUD();
+  // 次の数字（1〜9）。低い数多め
+  function randNext(){
+    const r = Math.random();
+    if (r<0.15) return 1;
+    if (r<0.30) return 2;
+    if (r<0.45) return 3;
+    if (r<0.60) return 4;
+    if (r<0.75) return 5;
+    if (r<0.86) return 6;
+    if (r<0.93) return 7;
+    if (r<0.98) return 8;
+    return 9;
   }
 
   function updateHUD(){
-    scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('fruit_merge_best')||0);
-    if (score>best) localStorage.setItem('fruit_merge_best', score|0);
-    bestEl.textContent = localStorage.getItem('fruit_merge_best') || 0;
-    nextNameEl.textContent = FRUITS[nextLevel].name;
-  }
-  reset();
-
-  function randNextLevel(){
-    const r = Math.random();
-    if (r<0.55) return 0;
-    if (r<0.85) return 1;
-    if (r<0.96) return 2;
-    return 3;
+    scoreEl.textContent = score;
+    const best = +(localStorage.getItem('tendrop_best')||0);
+    if (score>best) localStorage.setItem('tendrop_best', score);
+    bestEl.textContent = localStorage.getItem('tendrop_best')||0;
+    nextNumEl.textContent = next;
+    pairNumEl.textContent = (10-next);
+    hintBtn.textContent = showHint? 'ヒント OFF':'ヒント ON';
   }
 
-  function drop(){
-    if (over) return;
-    if (cooldown>0) return;
-    if (balls.length>=MAX_BALLS){ toast("いっぱいです。合体で減らそう！"); return; }
-    const f = FRUITS[nextLevel];
-    const x = clamp(aimX, LEFT+f.r+1, RIGHT-f.r-1);
-    const b = {x, y: CEIL-30, vx:0, vy:0, r:f.r, lv:nextLevel, mergeLock:0};
-    balls.push(b);
-    cooldown = .25; // 次の投入まで少し待つ
-    nextLevel = randNextLevel();
-    updateHUD();
-  }
-
-  // タッチ/マウス
-  function canvasX(e){
+  // ===== 入力：列タップでドロップ =====
+  function canvasColFromEvent(e){
     const rect = cv.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    return (clientX - rect.left) * (cv.width / rect.width);
+    const x = (clientX - rect.left) * (cv.width/rect.width);
+    const col = Math.max(0, Math.min(COLS-1, Math.floor((x-PAD)/CELL)));
+    return col;
   }
-  cv.addEventListener('touchstart', e=>{ aimX = canvasX(e); drop(); e.preventDefault(); }, {passive:false});
-  cv.addEventListener('touchmove', e=>{ aimX = canvasX(e); e.preventDefault(); }, {passive:false});
-  cv.addEventListener('mousedown', e=>{ aimX = canvasX(e); drop(); });
 
-  resetBtn.addEventListener('click', reset);
+  cv.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    dropAt(canvasColFromEvent(e));
+  }, {passive:false});
+  cv.addEventListener('mousedown', e=>{
+    dropAt(canvasColFromEvent(e));
+  });
+
+  resetBtn.addEventListener('click', init);
+  hintBtn.addEventListener('click', ()=>{ showHint = !showHint; updateHUD(); draw(); });
   helpBtn.addEventListener('click', ()=> helpModal.style.display='flex');
   closeHelp.addEventListener('click', ()=> helpModal.style.display='none');
 
-  function clamp(v,min,max){ return v<min?min:(v>max?max:v); }
-
-  // ====== 物理シミュレーション ======
-  function step(dt){
-    cooldown = Math.max(0,cooldown-dt);
-
-    // 重力
-    for(const b of balls){
-      b.vy += G*dt;
-      b.vx *= FRICTION; b.vy *= FRICTION;
-      b.x  += b.vx*dt;  b.y  += b.vy*dt;
-
-      // 壁
-      if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -b.vx*(1-REST); }
-      if (b.x + b.r > RIGHT){ b.x = RIGHT - b.r; b.vx = -b.vx*(1-REST); }
-      // 床
-      if (b.y + b.r > FLOOR){
-        b.y = FLOOR - b.r;
-        if (Math.abs(b.vy) < 40) b.vy = 0; else b.vy = -b.vy*(1-REST);
-      }
-      // 天井（上の赤い線より上に出たままなら危険カウント）
-      if (b.y - b.r < 0) timeTopDanger += dt;
+  // ===== ドロップ処理 =====
+  function dropAt(col){
+    if (over) return;
+    // 空き行を探す（下から）
+    let r = ROWS-1;
+    while(r>=0 && grid[r][col]!==null) r--;
+    if (r<0){
+      toast('その列はいっぱい！'); return;
     }
+    grid[r][col] = next;
+    score += next * 2;
+    next = randNext();
+    updateHUD();
+    settle(); // 連鎖処理
+  }
 
-    // 球同士の衝突解消（積みやすいように非弾性）
-    for(let i=0;i<balls.length;i++){
-      for(let j=i+1;j<balls.length;j++){
-        const A = balls[i], B = balls[j];
-        const dx = B.x - A.x, dy = B.y - A.y;
-        const dist = Math.hypot(dx,dy);
-        const minDist = A.r + B.r;
-        if (dist>0 && dist<minDist){
-          const overlap = (minDist - dist);
-          const nx = dx/dist, ny = dy/dist;
-          // 2つを半分ずつ押し分け
-          A.x -= nx*overlap*0.5; A.y -= ny*overlap*0.5;
-          B.x += nx*overlap*0.5; B.y += ny*overlap*0.5;
-          // 速度を法線方向に弱く反発
-          const rvx = B.vx - A.vx, rvy = B.vy - A.vy;
-          const vn = rvx*nx + rvy*ny;
-          const imp = -vn*0.5;
-          A.vx -= imp*nx; A.vy -= imp*ny;
-          B.vx += imp*nx; B.vy += imp*ny;
+  // ===== 連鎖：ペアで10になれば消す（速度条件なし・シンプル） =====
+  function settle(){
+    let combo = 0;
+    while(true){
+      const toClear = new Set(); // "r,c" 形式
+
+      // 4近傍で10になるペアを全部マーキング
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const v = grid[r][c];
+          if (v===null) continue;
+          const need = 10 - v;
+          // 右
+          if (c+1<COLS && grid[r][c+1]===need){ toClear.add(r+','+c); toClear.add(r+','+(c+1)); }
+          // 左
+          if (c-1>=0   && grid[r][c-1]===need){ toClear.add(r+','+c); toClear.add(r+','+(c-1)); }
+          // 下
+          if (r+1<ROWS && grid[r+1][c]===need){ toClear.add(r+','+c); toClear.add((r+1)+','+c); }
+          // 上
+          if (r-1>=0   && grid[r-1][c]===need){ toClear.add(r+','+c); toClear.add((r-1)+','+c); }
         }
       }
-    }
 
-    // 合体（同レベル & 接触 & 相対速度が小さい）
-    const toRemove = new Set(); let merged = false;
-    for(let i=0;i<balls.length;i++){
-      const A = balls[i];
-      if(toRemove.has(i) || A.mergeLock>0) continue;
-      for(let j=i+1;j<balls.length;j++){
-        const B = balls[j];
-        if(toRemove.has(j)||B.mergeLock>0) continue;
-        if(A.lv!==B.lv) continue;
-        const dx=B.x-A.x, dy=B.y-A.y, dist=Math.hypot(dx,dy);
-        if(dist < A.r+B.r - 2){
-          const rel = Math.hypot(B.vx-A.vx, B.vy-A.vy);
-          if (rel < 80){ // ゆっくりなら合体
-            const lv = Math.min(A.lv+1, FRUITS.length-1);
-            const f = FRUITS[lv];
-            const nx = (A.x + B.x)/2, ny = (A.y + B.y)/2;
-            balls.push({x:nx,y:ny,vx:(A.vx+B.vx)/2,vy:(A.vy+B.vy)/2,r:f.r,lv,mergeLock:0});
-            rings.push({x:nx,y:ny,r: f.r*0.6, t:0, col:f.color});
-            toRemove.add(i); toRemove.add(j);
-            score += Math.pow(2, lv+1) * 5;
-            merged = true;
-            break;
+      if (!toClear.size) break; // 連鎖終了
+
+      combo++;
+      // 消去＆スコア
+      let cleared = 0;
+      for(const key of toClear){
+        const [rr,cc] = key.split(',').map(Number);
+        if (grid[rr][cc]!==null){ cleared++; grid[rr][cc]=null; }
+      }
+      // 連鎖ボーナス（1連鎖=1.0倍, 2連鎖=1.2倍, 3連鎖=1.4倍…）
+      score += Math.floor(cleared * 10 * (1 + (combo-1)*0.2));
+
+      // 重力（列ごとに上から詰める）
+      for(let c=0;c<COLS;c++){
+        let write = ROWS-1;
+        for(let r=ROWS-1;r>=0;r--){
+          if (grid[r][c]!==null){
+            const v = grid[r][c];
+            grid[r][c]=null;
+            grid[write][c]=v;
+            write--;
           }
         }
       }
     }
-    if(merged){
-      // 一瞬は再合体しないロック
-      balls.forEach(b=>b.mergeLock=Math.max(0,b.mergeLock-1));
+    // ゲームオーバー（最上段にブロックが存在し、かつ危険ラインを超える可視領域にある）
+    for (let c=0;c<COLS;c++){
+      if (grid[0][c]!==null){ over = true; break; }
     }
-    // 削除
-    if(toRemove.size){
-      balls = balls.filter((_,idx)=>!toRemove.has(idx));
-    }
-    balls.forEach(b=>{ if(b.mergeLock>0) b.mergeLock--; });
-
-    // ゲームオーバー判定：上端から出た状態が続く
-    if (timeTopDanger > 1.2 && !over){ over=true; toast("GAME OVER! リセットで再挑戦"); }
-    if (!balls.some(b=>b.y-b.r<0)) timeTopDanger = 0;
+    if (over) toast('ゲームオーバー！ リセットで再挑戦');
+    updateHUD(); draw();
   }
 
-  // ====== 描画 ======
+  // ===== 描画 =====
   function draw(){
-    ctx.clearRect(0,0,W,H);
-
-    // バック（淡色）
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,W,H);
+    ctx.clearRect(0,0,cv.width,cv.height);
 
     // 枠
-    ctx.strokeStyle = '#e9e2d6'; ctx.lineWidth = 2;
-    roundRect(ctx, LEFT-6, 6, RIGHT-LEFT+12, FLOOR-6, 14); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,cv.width,cv.height);
+    ctx.strokeStyle = getCss('--line'); ctx.lineWidth = 2;
+    roundRect(ctx, PAD-8, TOP-8, CELL*COLS+16, (ROWS*CELL)+16, 14); ctx.stroke();
 
-    // 危険ライン
-    ctx.strokeStyle = '#ff5a5a'; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
+    // 危険表示（内部ガイド）
+    ctx.strokeStyle = 'rgba(255,90,90,.35)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(PAD, CEIL_Y); ctx.lineTo(PAD + CELL*COLS, CEIL_Y); ctx.stroke();
 
-    // 照準
-    const fN = FRUITS[nextLevel];
-    const ax = clamp(aimX, LEFT+fN.r+1, RIGHT-fN.r-1);
-    ctx.globalAlpha = 0.25;
-    drawFruit(ax, CEIL-30, fN.r, nextLevel);
-    ctx.globalAlpha = 1;
-
-    // フルーツ
-    for(const b of balls){ drawFruit(b.x,b.y,b.r,b.lv); }
-
-    // 合体リング
-    for(const r of rings){
-      r.t += 1/60;
-      ctx.globalAlpha = Math.max(0, 1-r.t);
-      ctx.strokeStyle = r.col; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(r.x,r.y, r.r + r.t*28, 0, Math.PI*2); ctx.stroke();
-      ctx.globalAlpha = 1;
+    // グリッド背景
+    ctx.fillStyle = 'rgba(0,0,0,.02)';
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const x = PAD + c*CELL, y = TOP + r*CELL;
+        ctx.fillRect(x+1,y+1, CELL-2, CELL-2);
+      }
     }
-    rings = rings.filter(r=>r.t<1);
 
-    // Over表示
-    if (over){
-      ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0,0,W,H);
-      ctx.fillStyle = '#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font = 'bold 36px system-ui'; ctx.fillText('GAME OVER', W/2, H*0.42);
-      ctx.font = '16px system-ui'; ctx.fillText('リセットで再挑戦', W/2, H*0.56);
+    // 数字玉
+    for(let r=0;r<ROWS;r++){
+      for(let c=0;c<COLS;c++){
+        const v = grid[r][c];
+        if (v===null) continue;
+        drawBall(c, r, v);
+      }
+    }
+
+    // ヒント（10まであといくつ）
+    if (showHint){
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = '#000';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = Math.floor(CELL*0.32)+'px system-ui, -apple-system, sans-serif';
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const x = PAD + c*CELL + CELL/2;
+          const y = TOP + r*CELL + CELL/2;
+          const v = grid[r][c];
+          const t = v===null? '' : (10 - v);
+          if (t!=='') ctx.fillText(t, x, y);
+        }
+      }
+      ctx.globalAlpha = 1;
     }
   }
 
-  function drawFruit(x,y,r,lv){
-    const col = FRUITS[lv].color;
+  function drawBall(c, r, v){
+    const x = PAD + c*CELL + CELL/2;
+    const y = TOP + r*CELL + CELL/2;
+    const rad = Math.floor(CELL*0.42);
+
     // 本体
-    const grad = ctx.createRadialGradient(x-r*0.5,y-r*0.5,r*0.3, x,y,r);
-    grad.addColorStop(0,'#fff'); grad.addColorStop(1,col);
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    // 輪郭
-    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
-    // ハイライト
-    ctx.beginPath(); ctx.arc(x-r*0.4,y-r*0.4, r*0.35, 0, Math.PI*2);
-    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=2; ctx.stroke();
+    const col = getCss('--c'+v);
+    const g = ctx.createRadialGradient(x-rad*0.45,y-rad*0.45, rad*0.3, x,y,rad);
+    g.addColorStop(0, '#fff'); g.addColorStop(1, col);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+
+    // ふち
+    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 2; ctx.stroke();
+
+    // 数字
+    ctx.fillStyle = '#1f2937';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold '+Math.floor(CELL*0.48)+'px system-ui';
+    ctx.fillText(v, x, y+1);
   }
 
   function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y);
     c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r);
     c.arcTo(x,y,x+w,y,r); c.closePath(); }
 
-  // ====== ループ ======
-  let acc = 0, last = performance.now();
-  function loop(now){
-    const dt = (now-last)/1000; last = now; acc += dt;
-    while(acc>DT){ step(DT); acc-=DT; }
-    draw();
-    requestAnimationFrame(loop);
+  function getCss(varName){
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
   }
-  requestAnimationFrame(loop);
 
-  // ユーティリティ
+  // ===== ユーティリティ =====
   function toast(msg){
     toastEl.textContent = msg;
     toastEl.classList.add('show');
     setTimeout(()=>toastEl.classList.remove('show'), 1500);
   }
+
+  // スタート
+  init();
 })();
 </script>
 
-<!-- ====== Service Worker をその場で生成・登録（オフライン化） ====== -->
+<!-- ===== Service Worker（動的生成：オフラインOK） ===== -->
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='fruit-merge-onefile-v2';
+    const CACHE='tendrop-onefile-v1';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
