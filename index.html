@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge v2.8</title>
+<title>10 Game — DecaMerge v3.0</title>
 <meta name="theme-color" content="#F6F3EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -110,9 +110,9 @@
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせます。</li>
       <li><strong>指を離す</strong>と、その位置に玉が落ちます（スライド中は落ちません）。</li>
-      <li><strong>1〜9の小玉</strong>は、触れ合ってできたグループの中で合計が<strong>10</strong>になる組合せを見つけるたびに<strong>即「10」玉に合体</strong>（2〜6個／複数同時OK）。</li>
+      <li><strong>1〜9の小玉</strong>は、隣り合ってできたグループの中で合計が<strong>10</strong>になる組合せを見つけるたびに<strong>即「10」玉に合体</strong>（2〜6個／複数同時OK）。</li>
       <li><strong>10,20,40…の大玉</strong>は<strong>同じ値どうし</strong>が軽く重なったら合体して<strong>倍</strong>になります。</li>
-      <li>赤線より上に<strong>静止気味で積み上がる</strong>と<b>ゲームオーバー</b>（猶予0.8秒）。</li>
+      <li>赤線より上に<strong>一定時間存在</strong>したら<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
     </ol>
     <p style="color:var(--muted);font-size:13px">ヒントONで各小玉に「10まであといくつ」を表示。</p>
     <div class="actions">
@@ -151,20 +151,20 @@
   }
   addEventListener('resize', fit); fit();
 
-  // ===== physics tuned (判定ゆるいまま難度UP) =====
+  // ===== physics tuned =====
   const W = cv.width, H = cv.height;
-  const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80; // 赤線
-  const G = 1780;                 // 少し強い重力 → 早く積み上がる
+  const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80;      // 赤線Y
+  const G = 1800;                 // 強めの重力（積み上がりやすい）
   const DT = 1/60;
-  const AIR_FRICTION = 0.975;     // 強い減衰 → 止まりやすい
-  const REST_FLOOR = 0.12;        // 低反発 → バウンド小
+  const AIR_FRICTION = 0.974;     // 強い減衰＝止まりやすい
+  const REST_FLOOR = 0.12;        // 低反発
   const REST_WALL  = 0.10;
-  const REST_N     = 0.08;        // 球同士の反発（ごく小）
+  const REST_N     = 0.08;        // 球同士の反発（小）
   const MAX_BALLS  = 90;
   const VX_MAX = 980, VY_MAX = 2550;
 
   // ===== state =====
-  /** @type {{x:number,y:number,vx:number,vy:number,r:number,val:number,id:number,m:number}[]} */
+  /** @type {{x:number,y:number,vx:number,vy:number,r:number,val:number,id:number,m:number,born:number}[]} */
   let balls = [], rings = [];
   let score = 0, over = false, cooldown = 0;
   let aimX = (LEFT+RIGHT)/2;
@@ -172,6 +172,7 @@
   let showHint = true;
   let dangerTime = 0;
   let idSeq = 1;
+  let gameTime = 0; // 秒
 
   // gesture / modal
   let helpOpen = false, dragging = false, activePointer=null;
@@ -190,15 +191,15 @@
     return CSS('--b10');
   }
 
-  // 面積比スケール：半径は √(値) に比例（10 を基準）
-  const R10 = 40, RMAX = 96;
+  // === 面積比：すべての球で r = R10 * √(value/10) ===
+  const R10 = 44, RMAX = 104;  // 10の半径 / 上限
   function radiusFor(v){
-    if (v<10) return 18 + v*2.1;                // 小玉は視認性優先
-    return Math.min(R10 * Math.sqrt(v/10), RMAX); // 大玉は実面積比
+    const r = R10 * Math.sqrt(Math.max(v,1)/10);
+    return Math.min(r, RMAX);
   }
-  function massFor(r){ return r*r; }             // 質量＝面積（相対値）
+  function massFor(r){ return r*r; } // 質量＝面積
 
-  // 生成分布（やや難しめ：高数値寄り）
+  // 生成分布（やや難しめ）
   function randSmall(){
     const r = Math.random();
     if (r<0.06) return 1;
@@ -273,20 +274,20 @@
 
   // ===== game control =====
   function reset(){
-    balls = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0;
+    balls = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0; gameTime=0;
     aimX=(LEFT+RIGHT)/2; nextQ=[randSmall(), randSmall()]; undoState=null;
     updateHUD();
   }
   function snapshot(){
-    return { balls: balls.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,val:b.val,id:b.id,m:b.m})),
+    return { balls: balls.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,val:b.val,id:b.id,m:b.m,born:b.born})),
              rings: rings.map(r=>({...r})),
-             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ] };
+             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
   }
   function restore(s){
     balls = s.balls.map(b=>({...b}));
     rings = s.rings.map(r=>({...r}));
     score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
-    updateHUD();
+    gameTime=s.gameTime; updateHUD();
   }
   function undo(){ if (!undoState) return; restore(undoState); undoState=null; toast('1手戻しました'); }
   function drop(){
@@ -296,13 +297,15 @@
     const val = nextQ.shift(); nextQ.push(randSmall());
     const r = radiusFor(val);
     const x = clamp(aimX, LEFT+r+1, RIGHT-r-1);
-    balls.push({x, y: CEIL-30, vx:0, vy:0, r, val, id:idSeq++, m:massFor(r)});
+    balls.push({x, y: CEIL-30, vx:0, vy:0, r, val, id:idSeq++, m:massFor(r), born:gameTime});
     score += val; cooldown = .18; updateHUD();
   }
 
   // ===== physics =====
   function step(dt){
+    gameTime += dt;
     cooldown = Math.max(0, cooldown-dt);
+
     for (const b of balls){
       b.vy += G*dt;
       b.vx *= AIR_FRICTION; b.vy *= AIR_FRICTION;
@@ -322,19 +325,18 @@
       }
     }
 
-    // 球同士の衝突（質量つき & 低反発）
+    // 球同士の衝突（質量つき・低反発）
     for (let i=0;i<balls.length;i++){
       for (let j=i+1;j<balls.length;j++){
         const A=balls[i], B=balls[j];
         const dx=B.x-A.x, dy=B.y-A.y, dist=Math.hypot(dx,dy), minD=A.r+B.r;
         if (dist>0 && dist<minD){
           const nx=dx/dist, ny=dy/dist, overlap=minD-dist;
-          // 位置の修正（質量に応じて分配）
           const imA = 1/A.m, imB = 1/B.m, invMass = imA + imB;
           const pushA = (imA/invMass)*overlap, pushB = (imB/invMass)*overlap;
           A.x-=nx*pushA; A.y-=ny*pushA; B.x+=nx*pushB; B.y+=ny*pushB;
 
-          // 速度の修正（1次元反発）
+          // 速度修正（1次元反発）
           const rvx=B.vx-A.vx, rvy=B.vy-A.vy;
           const vn = rvx*nx + rvy*ny;
           if (vn < 0){
@@ -356,22 +358,25 @@
     for (const r of rings){ r.t += dt; }
     rings = rings.filter(r=>r.t<0.9);
 
-    // === 赤線ゲームオーバー（静止気味で判定／猶予0.8s） ===
-    const MARGIN = 2, VY_STILL = 38, VX_STILL = 24;
-    let inDanger = false;
+    // === 赤線ゲームオーバー（速度条件なし／投入直後を除外） ===
+    const AGE_SAFE = 0.45, MARGIN = 1;
+    let minTop = Infinity, danger = false;
     for (const b of balls){
+      if (gameTime - b.born < AGE_SAFE) continue;        // 投入直後は無視
       const top = b.y - b.r;
-      if (top <= CEIL - MARGIN && Math.abs(b.vy) < VY_STILL && Math.abs(b.vx) < VX_STILL){ inDanger = true; break; }
+      minTop = Math.min(minTop, top);
+      if (top <= CEIL - MARGIN){ danger = true; break; } // 1pxでも超えたら危険
     }
-    if (inDanger) dangerTime = Math.min(10, dangerTime + dt);
-    else          dangerTime = Math.max(0, dangerTime - dt*1.6);
-    if (dangerTime > 0.8 && !over){ over = true; toast('GAME OVER! 元に戻す or リセット'); }
+    if (danger) dangerTime = Math.min(10, dangerTime + dt);
+    else dangerTime = 0;
+
+    if (dangerTime > 0.70 && !over){ over = true; toast('GAME OVER! 元に戻す or リセット'); }
   }
 
   // ===== merging =====
-  // 小玉の接触は「半径和 + 5px」までOK（ゆるい）。大玉は「わずかに重なり必須」。
-  const CONTACT_TOL_SMALL = 5.0;
-  const MERGE_OVERLAP_BIG = 0.5;
+  // 小玉は「隣り合い」＝ 半径和 + tol、で接続。大玉は「わずかに重なり必須」。
+  const CONTACT_TOL_SMALL = 6.0;   // 判定ゆるめ
+  const MERGE_OVERLAP_BIG = 1.0;   // 大玉は1px重なり
 
   function touchingSmall(a,b){
     const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy);
@@ -395,7 +400,7 @@
           const out=A.val*2, nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
           const r=radiusFor(out);
           const vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
-          balls.push({x:nx,y:ny,vx,vy,r,val:out,id:idSeq++, m:massFor(r)});
+          balls.push({x:nx,y:ny,vx,vy,r,val:out,id:idSeq++, m:massFor(r), born:gameTime});
           removedBig.add(A.id); removedBig.add(B.id);
           rings.push({x:nx,y:ny,t:0,col:bigColor(out)});
           score += Math.max(30,out);
@@ -405,10 +410,9 @@
     }
     if (removedBig.size){ balls = balls.filter(b=>!removedBig.has(b.id)); updateHUD(); }
 
-    // --- 小玉：接触グラフの各連結成分で「合計10」を複数見つけて同フレームで合体 ---
+    // --- 小玉：接触グラフの各成分で「合計10」を複数見つけて同フレームで合体 ---
     const small = balls.filter(b=>b.val<10);
     if (small.length){
-      // 隣接行列（ゆるい接触）
       const adj = small.map(()=>[]);
       for (let i=0;i<small.length;i++)
         for (let j=i+1;j<small.length;j++)
@@ -424,52 +428,44 @@
         while(q.length){ const v=q.shift(); comp.push(v); for (const nb of adj[v]) if(!visited[nb]){visited[nb]=true;q.push(nb);} }
         if (comp.length<2) continue;
 
-        // 成分内の候補（index配列）
-        let avail = comp.map(i=>i);
+        // 利用可能インデックス
+        let avail = comp.slice();
         const chosenSets = [];
 
-        // 繰り返し：見つかったら除外して、再度探索。サイズは2→3→4→5→6の順
         while(true){
           let foundAny = false;
-
-          // 値の大きい順で探索するとヒット率UP
+          // 値の大きい順で探索（ヒット率↑）
           const sorted = [...avail].sort((ia,ib)=>small[ib].val-small[ia].val);
 
-          // k-sum探索（バックトラック）: 最初に見つけた1組を採用
           function findK(choose){
-            const arr = sorted;
-            const n = arr.length;
-            const res = [];
+            const arr = sorted, n = arr.length;
+            let result = null;
             function dfs(start, need, sum, picked){
               if (sum>10) return false;
-              if (need===0) return sum===10 ? (res.push(...picked), true) : false;
+              if (need===0){ if (sum===10){ result = picked; return true; } return false; }
               for (let i=start;i<n;i++){
                 const idx = arr[i], v = small[idx].val;
-                if (sum+v>10) continue; // 早期カット
-                // 残り全部足しても10に届かないときもカット
-                // （簡易。need*v<=10-sum で粗く枝刈り）
-                if (v*need < 10-sum) { /* 続行 */ }
+                if (sum+v>10) continue;
                 if (dfs(i+1, need-1, sum+v, [...picked, idx])) return true;
               }
               return false;
             }
-            return dfs(0, choose, 0, []) ? res : null;
+            return dfs(0, choose, 0, []) ? result : null;
           }
 
           let picked=null;
           for (const k of [2,3,4,5,6]){ if (avail.length>=k){ picked = findK(k); if (picked) break; } }
+
           if (picked){
             chosenSets.push(picked);
-            // avail から削除
             const setPicked = new Set(picked);
             avail = avail.filter(i=>!setPicked.has(i));
             foundAny = true;
           }
-
           if (!foundAny) break;
         }
 
-        // 反映：1成分内で複数合体
+        // 反映
         for (const picked of chosenSets){
           const chosen = picked.map(i=>small[i]);
           const cx = chosen.reduce((a,b)=>a+b.x,0)/chosen.length;
@@ -477,10 +473,10 @@
           const cvx= chosen.reduce((a,b)=>a+b.vx,0)/chosen.length * 0.1;
           const cvy= chosen.reduce((a,b)=>a+b.vy,0)/chosen.length * 0.1;
           const r  = radiusFor(10);
-          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,r,val:10,id:idSeq++, m:massFor(r)});
+          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,r,val:10,id:idSeq++, m:massFor(r), born:gameTime});
           chosen.forEach(b=>toRemove.add(b.id));
           rings.push({x:cx,y:cy,t:0,col:bigColor(10)});
-          score += 16 + 2*chosen.length; // 控えめスコア
+          score += 16 + 2*chosen.length;
           changed = true;
         }
       }
@@ -502,7 +498,7 @@
     ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
     roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
     // 赤線
-    ctx.strokeStyle = 'rgba(226,78,82,.6)'; ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
+    ctx.strokeStyle = 'rgba(226,78,82,.65)'; ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
 
     // ゴースト
     const rN = radiusFor(nextQ[0]);
@@ -563,7 +559,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v28';
+    const CACHE='10game-decamerge-v30';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
