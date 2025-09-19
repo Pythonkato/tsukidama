@@ -3,19 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>TenDrop v5 — Somma</title>
+<title>10 Game — DecaMerge</title>
 <meta name="theme-color" content="#F6F3EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-<!-- 極小プレースホルダーアイコン（必要に応じ差し替え） -->
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
 
-<!-- Manifest（内蔵） -->
+<!-- Manifest (inlined) -->
 <script type="application/manifest+json">
 {
-  "name": "TenDrop — Somma",
-  "short_name": "TenDrop",
+  "name": "10 Game — DecaMerge",
+  "short_name": "10 Game",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F6F3EE",
@@ -28,18 +26,23 @@
 
 <style>
   :root{
-    /* Euro/Italian palette */
+    /* Italian/Euro minimal palette */
     --bg:#F6F3EE; --paper:#FFFFFF; --ink:#1B1B1B; --muted:#6D7280; --line:#E6E0D7; --chip:#FAF8F4;
-    --accent:#E24E52; --accent2:#157A6E; --ok:#12B886; --warn:#E8590C;
+    --accent:#E24E52; --ok:#12B886;
 
-    /* number tones */
-    --n1:#E96B6B; --n2:#F0A27A; --n3:#F3D277;
-    --n4:#90CDBF; --n5:#BDE0FE; --n6:#7CB7F3;
-    --n7:#B7A4E8; --n8:#F48BC6; --n9:#D3AE63;
+    /* numbers 1-9 */
+    --n1:#E96B6B; --n2:#F0A27A; --n3:#F3D277; --n4:#90CDBF; --n5:#BDE0FE;
+    --n6:#7CB7F3; --n7:#B7A4E8; --n8:#F48BC6; --n9:#D3AE63;
+
+    /* big (>=10) */
+    --b10:#3BB273; --b20:#2A8FBD; --b40:#8266CC; --b80:#E05C80; --b160:#D9922B;
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 50% -10%,#FFF,#F6F3EE 55%);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Segoe UI",Roboto,"Noto Sans JP",Arial,sans-serif;}
+  html,body{
+    height:100%; margin:0; color:var(--ink);
+    background:radial-gradient(1200px 600px at 50% -10%,#FFF,#F6F3EE 55%);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Segoe UI",Roboto,"Noto Sans JP",Arial,sans-serif;
+  }
   #wrap{min-height:100%;display:flex;flex-direction:column}
 
   header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
@@ -57,23 +60,12 @@
   .pair{opacity:.85;font-size:12px}
 
   #stage{flex:1;display:flex;align-items:center;justify-content:center;padding:14px}
-  canvas{touch-action:none;background:var(--paper);border:1px solid var(--line);border-radius:16px;
-    box-shadow:0 8px 40px rgba(0,0,0,.06)}
+  canvas{touch-action:none;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.06)}
 
   footer{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center}
 
-  /* Settings modal */
-  #settings{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:18px}
-  #settings .card{width:min(520px,92vw);background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
-  #settings h3{margin:.2em 0 .6em;font-size:18px}
-  .row{display:flex;gap:8px;flex-wrap:wrap}
-  .pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff}
-  .pill.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
-  .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
-  .small{font-size:12px;color:var(--muted)}
-
-  /* Toast */
-  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+    background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s}
   .toast.show{opacity:1}
 </style>
 </head>
@@ -81,8 +73,8 @@
 <div id="wrap">
   <header>
     <div class="brand">
-      <div class="ttl">TenDrop</div>
-      <div class="sub">Somma a <span id="targetLabel">10</span></div>
+      <div class="ttl">10 Game</div>
+      <div class="sub">DecaMerge — 足して10→10→20→40…</div>
     </div>
     <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
@@ -92,109 +84,86 @@
       </div>
       <button class="btn ghost" id="hintBtn">ヒント ON</button>
       <button class="btn ghost" id="undoBtn" disabled>元に戻す</button>
-      <button class="btn ghost" id="settingsBtn">設定</button>
       <button class="btn strong" id="resetBtn">リセット</button>
     </div>
   </header>
 
   <div id="stage">
-    <!-- 小さめキャンバス＋自動フィット：下が見切れない -->
-    <canvas id="cv" width="320" height="480" aria-label="TenDrop game canvas"></canvas>
+    <!-- 固定内部解像度：CSSでスケール。縦横フィットで見切れ防止 -->
+    <canvas id="cv" width="360" height="640" aria-label="10 Game canvas"></canvas>
   </div>
 
-  <footer>
-    列をタップして数字を落とす。<strong>上下左右で合計が目標値</strong>になった数字は消える。落ちて連鎖で高得点。
-  </footer>
-</div>
-
-<!-- 設定モーダル -->
-<div id="settings">
-  <div class="card">
-    <h3>設定（Impostazioni）</h3>
-    <div class="small" style="margin-bottom:6px">目標合計（Somma target）</div>
-    <div class="row" id="targetRow"></div>
-    <div class="small" style="margin-top:12px;margin-bottom:6px">盤サイズ（列×行）</div>
-    <div class="row" id="sizeRow"></div>
-    <div class="modalActions">
-      <button class="btn ghost" id="closeSettings">閉じる</button>
-      <button class="btn strong" id="applySettings">適用</button>
-    </div>
-  </div>
+  <footer>指で左右をスライド→<b>タップで投入</b>。<b>足して10</b>で「10」に合体、<b>同じ大玉同士</b>で倍々に合体！</footer>
 </div>
 
 <div id="toast" class="toast"></div>
 
 <script>
-(() => {
-  // ===== DOM =====
+(()=> {
+  // ==== DOM ====
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const scoreEl = document.getElementById('score');
   const bestEl  = document.getElementById('best');
   const nextCircle = document.getElementById('nextCircle');
   const pairNumEl = document.getElementById('pairNum');
-  const targetLabel = document.getElementById('targetLabel');
-
   const resetBtn = document.getElementById('resetBtn');
   const hintBtn = document.getElementById('hintBtn');
   const undoBtn = document.getElementById('undoBtn');
-  const settingsBtn = document.getElementById('settingsBtn');
-  const settingsModal = document.getElementById('settings');
-  const closeSettings = document.getElementById('closeSettings');
-  const applySettings = document.getElementById('applySettings');
-  const targetRow = document.getElementById('targetRow');
-  const sizeRow = document.getElementById('sizeRow');
   const toastEl = document.getElementById('toast');
 
-  // ===== CSS helpers =====
-  const CSS = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const COLORS = {1:CSS('--n1'),2:CSS('--n2'),3:CSS('--n3'),4:CSS('--n4'),5:CSS('--n5'),6:CSS('--n6'),7:CSS('--n7'),8:CSS('--n8'),9:CSS('--n9')};
-
-  // ===== Config / State =====
-  let COLS = +(localStorage.getItem('tendrop_cols')||6);
-  let ROWS = +(localStorage.getItem('tendrop_rows')||10);
-  let TARGET = +(localStorage.getItem('tendrop_target')||10);
-
-  let PADX = 16, PADY = 56;
-  let CELL = Math.floor((cv.width - PADX*2) / COLS);
-
-  /** @type {(number|null)[][]} */
-  let grid;
-  let score = 0, over = false, next = 1;
-  let showHint = true;
-
-  // hover/preview
-  let hoverCol = null;
-  let previewHit = false; // その列に置くと即マッチが起きるか
-  // undo
-  let undoState = null; // {grid, score, next}
-
-  // ===== fit to screen =====
+  // ==== layout fit ====
   function fit(){
-    const maxW = Math.min(innerWidth - 24, 420);
+    const maxW = Math.min(innerWidth - 24, 440);
     const ratio = maxW / cv.width;
-    cv.style.width = maxW + 'px';
-    cv.style.height = (cv.height * ratio) + 'px';
-    CELL = Math.floor((cv.width - PADX*2) / COLS);
-    draw();
+    cv.style.width = maxW+'px';
+    cv.style.height = (cv.height*ratio)+'px';
   }
-  addEventListener('resize', fit);
+  addEventListener('resize', fit); fit();
 
-  // ===== init =====
-  function init(){
-    grid = Array.from({length:ROWS},()=>Array(COLS).fill(null));
-    score = 0; over = false;
-    next = randNext();
-    undoState = null;
-    updateHUD();
-    draw();
+  // ==== physics constants ====
+  const W = cv.width, H = cv.height;
+  const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80;
+  const G = 1500; const DT = 1/60;
+  const FRICTION = 0.996; const REST = 0.02;
+  const MAX_BALLS = 90;
+
+  // ==== state ====
+  /** @type {{x:number,y:number,vx:number,vy:number,r:number,val:number,lock:number,id:number}[]} */
+  let balls = [];
+  let rings = []; // merge rings
+  let score = 0, over = false, cooldown = 0;
+  let aimX = (LEFT+RIGHT)/2;
+  let next = randSmall();
+  let showHint = true;
+  let topDanger = 0;
+  let idSeq = 1;
+
+  // undo
+  let undoState = null;
+
+  // ==== helpers ====
+  const CSS = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const smallColor = (v)=>CSS('--n'+v);
+  function bigColor(v){
+    if (v>=160) return CSS('--b160');
+    if (v>=80)  return CSS('--b80');
+    if (v>=40)  return CSS('--b40');
+    if (v>=20)  return CSS('--b20');
+    return CSS('--b10');
+  }
+  function radiusFor(v){
+    // 視認性重視：大玉は大きいけど盤面に収まるよう上限
+    if (v<10) return 14 + v*2; // 1→16 … 9→32
+    const raw = 20 + Math.log2(v/10 + 1) * 22; // 10→42, 20→~53, 40→~65, 80→~76
+    return Math.min(raw, 58); // 上限
   }
 
-  function randNext(){
+  function randSmall(){
     const r = Math.random();
-    if (r<0.16) return 1;
-    if (r<0.32) return 2;
-    if (r<0.48) return 3;
+    if (r<0.15) return 1;
+    if (r<0.30) return 2;
+    if (r<0.47) return 3;
     if (r<0.64) return 4;
     if (r<0.78) return 5;
     if (r<0.88) return 6;
@@ -203,268 +172,240 @@
     return 9;
   }
 
-  function bestKey(){ return 'tendrop_best_'+TARGET+'_'+COLS+'x'+ROWS; }
-
   function updateHUD(){
-    scoreEl.textContent = score;
-    const best = +(localStorage.getItem(bestKey())||0);
-    if (score > best) localStorage.setItem(bestKey(), score);
-    bestEl.textContent = localStorage.getItem(bestKey()) || 0;
+    scoreEl.textContent = score|0;
+    const best = +(localStorage.getItem('decamerge_best')||0);
+    if (score>best) localStorage.setItem('decamerge_best', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best')||0;
     nextCircle.textContent = next;
-    pairNumEl.textContent = TARGET - next;
-    targetLabel.textContent = TARGET;
+    pairNumEl.textContent = 10-next;
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
     undoBtn.disabled = !undoState;
   }
 
-  // ===== inputs =====
-  function colFromEvent(e){
+  // ==== input ====
+  function canvasX(e){
     const rect = cv.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const x = (clientX - rect.left) * (cv.width/rect.width);
-    const col = Math.floor((x - PADX)/CELL);
-    return Math.max(0, Math.min(COLS-1, col));
+    return (clientX - rect.left) * (cv.width/rect.width);
+  }
+  cv.addEventListener('mousemove', e=>{ aimX = clamp(canvasX(e), LEFT, RIGHT); });
+  cv.addEventListener('touchmove', e=>{ aimX = clamp(canvasX(e), LEFT, RIGHT); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mousedown', e=> drop());
+  cv.addEventListener('touchstart', e=>{ drop(); e.preventDefault(); }, {passive:false});
+  resetBtn.addEventListener('click', reset);
+  hintBtn.addEventListener('click', ()=>{ showHint = !showHint; updateHUD(); });
+  undoBtn.addEventListener('click', undo);
+
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+  function reset(){
+    balls = []; rings = []; score=0; over=false; cooldown=0; topDanger=0; aimX=(LEFT+RIGHT)/2; next=randSmall(); undoState=null;
+    updateHUD();
   }
 
-  function findLandingRow(col){
-    let r = ROWS-1;
-    while(r>=0 && grid[r][col]!==null) r--;
-    return r; // -1なら満杯
-  }
-
-  function willImmediateMatch(col, row, val){
-    // 置いた直後に隣接ペアが出来るか（右/左/下）
-    const need = TARGET - val;
-    // 左右
-    if (col-1>=0 && grid[row]?.[col-1]===need) return true;
-    if (col+1<COLS && grid[row]?.[col+1]===need) return true;
-    // 下
-    if (row+1<ROWS && grid[row+1]?.[col]===need) return true;
-    return false;
-  }
-
-  function setHover(col){
-    hoverCol = col;
-    const row = findLandingRow(col);
-    previewHit = (row>=0) && willImmediateMatch(col,row,next);
-    draw();
-  }
-
-  cv.addEventListener('mousemove', e=> setHover(colFromEvent(e)));
-  cv.addEventListener('touchmove', e=> { setHover(colFromEvent(e)); e.preventDefault(); }, {passive:false});
-  cv.addEventListener('mouseleave', ()=>{ hoverCol=null; draw(); });
-
-  cv.addEventListener('mousedown', e=> dropAt(colFromEvent(e)));
-  cv.addEventListener('touchstart', e=> { dropAt(colFromEvent(e)); e.preventDefault(); }, {passive:false});
-
-  resetBtn.addEventListener('click', ()=>{ init(); draw(); });
-  hintBtn.addEventListener('click', ()=>{ showHint=!showHint; updateHUD(); draw(); });
-  undoBtn.addEventListener('click', doUndo);
-
-  settingsBtn.addEventListener('click', ()=> { renderSettings(); settingsModal.style.display='flex'; });
-  closeSettings.addEventListener('click', ()=> settingsModal.style.display='none');
-  applySettings.addEventListener('click', ()=>{
-    localStorage.setItem('tendrop_target', TARGET);
-    localStorage.setItem('tendrop_cols', COLS);
-    localStorage.setItem('tendrop_rows', ROWS);
-    settingsModal.style.display='none';
-    init(); fit(); toast('設定を適用しました');
-  });
-
-  const targetOptions = [10,12,15,20];
-  const sizeOptions = [{c:6,r:10,label:'6 × 10'},{c:6,r:12,label:'6 × 12'},{c:7,r:12,label:'7 × 12'}];
-
-  function renderSettings(){
-    targetRow.innerHTML='';
-    targetOptions.forEach(t=>{
-      const b=document.createElement('button');
-      b.className='pill'+(t===TARGET?' active':'');
-      b.textContent=t;
-      b.onclick=()=>{ TARGET=t; renderSettings(); updateHUD(); };
-      targetRow.appendChild(b);
-    });
-    sizeRow.innerHTML='';
-    sizeOptions.forEach(s=>{
-      const b=document.createElement('button');
-      b.className='pill'+(s.c===COLS && s.r===ROWS ? ' active':'');
-      b.textContent=s.label;
-      b.onclick=()=>{ COLS=s.c; ROWS=s.r; CELL = Math.floor((cv.width-PADX*2)/COLS); renderSettings(); };
-      sizeRow.appendChild(b);
-    });
-  }
-
-  // ===== game core =====
   function snapshot(){
+    // 深いコピー：性能優先で最低限
     return {
-      grid: grid.map(col=>col.slice()),
-      score, next
+      balls: balls.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,val:b.val,lock:b.lock,id:b.id})),
+      rings: rings.map(r=>({...r})),
+      score, over, cooldown, topDanger, aimX, next
     };
   }
-  function restore(state){
-    grid = state.grid.map(col=>col.slice());
-    score = state.score;
-    next = state.next;
-    over = false;
-    updateHUD(); draw();
+  function restore(s){
+    balls = s.balls.map(b=>({...b}));
+    rings = s.rings.map(r=>({...r}));
+    score = s.score; over=s.over; cooldown=s.cooldown; topDanger=s.topDanger; aimX=s.aimX; next=s.next;
+    updateHUD();
   }
-  function doUndo(){
+  function undo(){
     if (!undoState) return;
     restore(undoState);
     undoState = null;
-    updateHUD();
     toast('1手戻しました');
   }
 
-  function dropAt(col){
+  function drop(){
     if (over) return;
-    const r = findLandingRow(col);
-    if (r<0){ toast('その列はいっぱい'); return; }
+    if (cooldown>0) return;
+    if (balls.length>=MAX_BALLS){ toast('いっぱいです。合体で減らそう！'); return; }
 
-    // スナップショット（1手アンドゥ）
+    // 1手アンドゥ用に保存
     undoState = snapshot();
 
-    grid[r][col] = next;
-    score += next * 2;
-    next = randNext();
+    const val = next;
+    const r = radiusFor(val);
+    const x = clamp(aimX, LEFT+r+1, RIGHT-r-1);
+    balls.push({x, y: CEIL-30, vx:0, vy:0, r, val, lock:18, id:idSeq++});
+    score += val; // 落とすだけ少し加点
+    next = randSmall();
+    cooldown = .22;
     updateHUD();
-    settle();
   }
 
-  function settle(){
-    let combo=0;
-    while(true){
-      const toClear = new Set();
-      for (let r=0;r<ROWS;r++){
-        for (let c=0;c<COLS;c++){
-          const v = grid[r][c];
-          if (v===null) continue;
-          const need = TARGET - v;
-          if (c+1<COLS && grid[r][c+1]===need){ toClear.add(r+','+c); toClear.add(r+','+(c+1)); }
-          if (r+1<ROWS && grid[r+1][c]===need){ toClear.add(r+','+c); toClear.add((r+1)+','+c); }
+  // ==== physics step ====
+  function step(dt){
+    cooldown = Math.max(0, cooldown-dt);
+
+    // gravity & move
+    for (const b of balls){
+      b.vy += G*dt;
+      b.vx *= FRICTION; b.vy *= FRICTION;
+      b.x  += b.vx*dt;  b.y  += b.vy*dt;
+
+      // walls
+      if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -b.vx*(1-REST); }
+      if (b.x + b.r > RIGHT){ b.x = RIGHT - b.r; b.vx = -b.vx*(1-REST); }
+      if (b.y + b.r > FLOOR){
+        b.y = FLOOR - b.r;
+        if (Math.abs(b.vy) < 40) b.vy = 0; else b.vy = -b.vy*(1-REST);
+      }
+      if (b.lock>0) b.lock--;
+      if (b.y - b.r < 0) topDanger += dt;
+    }
+
+    // pairwise collision resolve
+    for (let i=0;i<balls.length;i++){
+      for (let j=i+1;j<balls.length;j++){
+        const A = balls[i], B = balls[j];
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const dist = Math.hypot(dx,dy);
+        const minD = A.r + B.r;
+        if (dist>0 && dist < minD){
+          const nx = dx/dist, ny = dy/dist;
+          const overlap = (minD - dist);
+          // separate
+          A.x -= nx*overlap*0.5; A.y -= ny*overlap*0.5;
+          B.x += nx*overlap*0.5; B.y += ny*overlap*0.5;
+          // dampened bounce
+          const rvx = B.vx - A.vx, rvy = B.vy - A.vy;
+          const vn = rvx*nx + rvy*ny;
+          const imp = -vn*0.6;
+          A.vx -= imp*nx; A.vy -= imp*ny; B.vx += imp*nx; B.vy += imp*ny;
         }
       }
-      if (!toClear.size) break;
+    }
 
-      combo++;
-      let cleared=0;
-      for (const key of toClear){
-        const [rr,cc] = key.split(',').map(Number);
-        if (grid[rr][cc]!==null){ grid[rr][cc]=null; cleared++; }
-      }
-      score += Math.floor(cleared * 6 * (1 + (combo-1)*0.25) * (TARGET/10));
+    // merging — 即時合体（速度条件なし）、ただしロック中は不可
+    let mergedAny = false;
+    const removed = new Set();
 
-      // gravity
-      for (let c=0;c<COLS;c++){
-        let write=ROWS-1;
-        for (let r=ROWS-1;r>=0;r--){
-          const v=grid[r][c];
-          if (v!==null){
-            if (write!==r){ grid[write][c]=v; grid[r][c]=null; }
-            write--;
+    for (let i=0;i<balls.length;i++){
+      const A = balls[i]; if (removed.has(A.id)) continue;
+      for (let j=i+1;j<balls.length;j++){
+        const B = balls[j]; if (removed.has(B.id)) continue;
+        if (A.lock>0 || B.lock>0) continue;
+
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const dist = Math.hypot(dx,dy);
+        if (dist <= A.r + B.r - 2){
+          let outVal = null;
+
+          // 1) small + small => sum to 10
+          if (A.val<10 && B.val<10 && A.val + B.val === 10){
+            outVal = 10;
+          }
+          // 2) big + big (equal) => double
+          else if (A.val>=10 && A.val === B.val){
+            outVal = A.val * 2;
+          }
+
+          if (outVal !== null){
+            const nx = (A.x + B.x)/2, ny = (A.y + B.y)/2;
+            const nvx = (A.vx + B.vx)/2, nvy = (A.vy + B.vy)/2;
+            const nr = radiusFor(outVal);
+            const newB = {x:nx, y:ny, vx:nvx*0.2, vy:nvy*0.2, r:nr, val:outVal, lock:20, id:idSeq++};
+            balls.push(newB);
+            removed.add(A.id); removed.add(B.id);
+            rings.push({x:nx,y:ny,t:0,col: outVal<10? smallColor(outVal) : bigColor(outVal)});
+
+            // scoring：合体の種類でボーナス
+            if (outVal === 10) score += 25;            // 10生成
+            else               score += Math.max(30, outVal); // 10→20→40…は値に比例
+            mergedAny = true;
+            break;
           }
         }
       }
     }
 
-    // top filled?
-    over = grid[0].some(v=>v!==null);
-    if (over) toast('ゲームオーバー！ リセットか元に戻す');
-    updateHUD(); draw();
+    if (removed.size){
+      balls = balls.filter(b=>!removed.has(b.id));
+    }
+
+    // merge chain は物理が進む中で自然発生。ここでは即座に複数回判定OK
+
+    // rings
+    for (const r of rings){ r.t += dt; }
+    rings = rings.filter(r=>r.t<0.9);
+
+    // game over: 上端に一定時間かかってたらアウト
+    if (topDanger > 1.4 && !over){ over = true; toast('GAME OVER! リセット or 元に戻す'); }
+    if (!balls.some(b=>b.y-b.r<0)) topDanger = 0;
   }
 
-  // ===== draw =====
+  // ==== draw ====
   function draw(){
-    ctx.clearRect(0,0,cv.width,cv.height);
+    ctx.clearRect(0,0,W,H);
 
     // frame
-    roundedStroke(PADX-8, PADY-8, CELL*COLS+16, CELL*ROWS+16, 14, CSS('--line'), 2);
+    ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
+    roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
 
-    // column hover highlight
-    if (hoverCol!==null){
-      const x = PADX + hoverCol*CELL;
-      ctx.fillStyle = previewHit ? 'rgba(18,184,134,.12)' : 'rgba(0,0,0,.06)';
-      ctx.fillRect(x, PADY, CELL, CELL*ROWS);
+    // danger line
+    ctx.strokeStyle = 'rgba(226,78,82,.5)';
+    ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
 
-      // ghost piece at landing row
-      const row = findLandingRow(hoverCol);
-      if (row>=0){
-        ghostBall(hoverCol, row, next, previewHit);
-      } else {
-        // full mark
-        ctx.fillStyle='rgba(226,78,82,.20)';
-        ctx.fillRect(x, PADY, CELL, CELL*ROWS);
-        ctx.fillStyle='#E24E52';
-        ctx.font='bold '+Math.floor(CELL*0.6)+'px system-ui';
-        ctx.textAlign='center'; ctx.textBaseline='middle';
-        ctx.fillText('×', x+CELL/2, PADY+CELL);
-      }
-    }
-
-    // subtle grid
-    ctx.fillStyle = 'rgba(0,0,0,.02)';
-    for (let r=0;r<ROWS;r++){
-      for (let c=0;c<COLS;c++){
-        const x = PADX + c*CELL, y = PADY + r*CELL;
-        ctx.fillRect(x+1, y+1, CELL-2, CELL-2);
-      }
-    }
-
-    // numbers
-    for (let r=0;r<ROWS;r++){
-      for (let c=0;c<COLS;c++){
-        const v = grid[r][c];
-        if (v===null) continue;
-        ball(c,r,v);
-      }
-    }
-
-    // game over veil
-    if (over){
-      ctx.fillStyle='rgba(0,0,0,.48)';
-      ctx.fillRect(0,0,cv.width,cv.height);
-      ctx.fillStyle='#fff';
-      ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.font='bold 28px system-ui';
-      ctx.fillText('GAME OVER', cv.width/2, cv.height*0.45);
-      ctx.font='16px system-ui';
-      ctx.fillText('「元に戻す」または「リセット」', cv.width/2, cv.height*0.58);
-    }
-  }
-
-  function ball(c,r,v){
-    const x = PADX + c*CELL + CELL/2;
-    const y = PADY + r*CELL + CELL/2;
-    const rad = Math.floor(CELL*0.42);
-    const g = ctx.createRadialGradient(x-rad*0.45,y-rad*0.45,rad*0.25, x,y,rad);
-    g.addColorStop(0,'#fff'); g.addColorStop(1, COLORS[v]||'#ddd');
-    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
-    ctx.fillStyle='#1b1b1b'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='bold '+Math.floor(CELL*0.50)+'px system-ui';
-    ctx.fillText(v, x, y+1);
-
-    if (showHint){
-      ctx.fillStyle='rgba(0,0,0,.35)';
-      ctx.font=Math.floor(CELL*0.28)+'px system-ui';
-      ctx.fillText(TARGET - v, x, y - Math.floor(rad*0.95));
-    }
-  }
-
-  function ghostBall(c,r,v,good){
-    const x = PADX + c*CELL + CELL/2;
-    const y = PADY + r*CELL + CELL/2;
-    const rad = Math.floor(CELL*0.42);
-    ctx.globalAlpha = .35;
-    ctx.fillStyle = good ? CSS('--ok') : '#999';
-    ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+    // aim ghost
+    const rN = radiusFor(next);
+    const ax = clamp(aimX, LEFT+rN+1, RIGHT-rN-1);
+    ctx.globalAlpha = .28;
+    drawBall(ax, CEIL-30, rN, next);
     ctx.globalAlpha = 1;
-    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font='bold '+Math.floor(CELL*0.50)+'px system-ui';
-    ctx.fillText(v, x, y+1);
+
+    // balls
+    for (const b of balls){ drawBall(b.x,b.y,b.r,b.val); }
+
+    // merge rings
+    for (const rr of rings){
+      ctx.globalAlpha = Math.max(0, 1 - rr.t*1.1);
+      ctx.strokeStyle = rr.col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(rr.x, rr.y, 8 + rr.t*42, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    if (over){
+      ctx.fillStyle = 'rgba(0,0,0,.48)';
+      ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='bold 32px system-ui'; ctx.fillText('GAME OVER', W/2, H*0.42);
+      ctx.font='16px system-ui'; ctx.fillText('「元に戻す」か「リセット」', W/2, H*0.58);
+    }
   }
 
-  function roundedStroke(x,y,w,h,r,col,lw){
-    ctx.save();
+  function drawBall(x,y,r,val){
+    // fill
+    let base = val<10 ? smallColor(val) : bigColor(val);
+    const g = ctx.createRadialGradient(x-r*0.45,y-r*0.45,r*0.28, x,y,r);
+    g.addColorStop(0,'#fff'); g.addColorStop(1, base);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+
+    // number
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold '+Math.floor(r*0.9)+'px system-ui';
+    ctx.fillText(val, x, y+1);
+
+    // hint: 補数
+    if (showHint && val<10){
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.font = Math.floor(r*0.42)+'px system-ui';
+      ctx.fillText(10-val, x, y - r*0.95);
+    }
+  }
+
+  function roundRectPath(x,y,w,h,r){
     ctx.beginPath();
     ctx.moveTo(x+r,y);
     ctx.arcTo(x+w,y,x+w,y+h,r);
@@ -472,27 +413,32 @@
     ctx.arcTo(x,y+h,x,y,r);
     ctx.arcTo(x,y,x+w,y,r);
     ctx.closePath();
-    ctx.lineWidth=lw||1; ctx.strokeStyle=col||'#000'; ctx.stroke();
-    ctx.restore();
   }
 
-  // ===== toast =====
+  // ==== toast ====
   function toast(msg){
-    toastEl.textContent=msg;
+    toastEl.textContent = msg;
     toastEl.classList.add('show');
-    setTimeout(()=>toastEl.classList.remove('show'),1300);
+    setTimeout(()=>toastEl.classList.remove('show'), 1300);
   }
 
-  // boot
-  init(); fit();
+  // ==== loop ====
+  let acc=0, last=performance.now();
+  function loop(now){
+    const dt = (now-last)/1000; last=now; acc += dt;
+    while(acc>DT){ step(DT); acc-=DT; }
+    draw();
+    requestAnimationFrame(loop);
+  }
+  reset(); updateHUD(); requestAnimationFrame(loop);
 })();
 </script>
 
-<!-- Service Worker（動的生成：オフライン可） -->
+<!-- Service Worker（オフライン対応・動的生成） -->
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='tendrop-v5';
+    const CACHE='10game-decamerge-v1';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
