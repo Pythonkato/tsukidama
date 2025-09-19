@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge v1.2</title>
+<title>10 Game — DecaMerge v1.5</title>
 <meta name="theme-color" content="#F6F3EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -26,15 +26,10 @@
 
 <style>
   :root{
-    /* Euro minimal palette */
     --bg:#F6F3EE; --paper:#FFFFFF; --ink:#1B1B1B; --muted:#6D7280; --line:#E6E0D7; --chip:#FAF8F4;
     --accent:#E24E52; --ok:#12B886;
-
-    /* small 1-9 */
     --n1:#E96B6B; --n2:#F0A27A; --n3:#F3D277; --n4:#90CDBF; --n5:#BDE0FE;
     --n6:#7CB7F3; --n7:#B7A4E8; --n8:#F48BC6; --n9:#D3AE63;
-
-    /* big >=10 */
     --b10:#3BB273; --b20:#2A8FBD; --b40:#8266CC; --b80:#E05C80; --b160:#D9922B;
   }
   *{box-sizing:border-box}
@@ -52,7 +47,7 @@
   .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .chip{background:var(--chip);border:1px solid var(--line);padding:8px 10px;border-radius:12px}
   .btn{border:1px solid var(--line);padding:8px 12px;border-radius:12px;background:#fff;font-weight:700}
-  .btn.strong{border-color:transparent;background:var(--ink);color:#fff}
+  .btn.strong{border-color:transparent;background:#111;color:#fff}
   .btn.ghost{background:#fff}
   .btn:disabled{opacity:.45}
   .nextBadge{display:flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border-radius:14px;padding:8px 12px;font-weight:800}
@@ -70,9 +65,10 @@
 
   /* Help modal */
   #help{position:fixed;inset:0;background:rgba(0,0,0,.38);display:none;align-items:center;justify-content:center;padding:18px}
+  #help[open]{display:flex}
   #help .card{width:min(560px,92vw);background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
   #help h3{margin:.2em 0 .6em;font-size:18px}
-  #help ol{padding-left:1.1em}
+  #help ol{padding-left:1.1em;line-height:1.6}
   #help li{margin:.35em 0}
   #help .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
 </style>
@@ -90,7 +86,7 @@
         Next <div class="nextCircle" id="nextCircle">-</div>
         <span class="pair">→ 補数 <b id="pairNum">-</b></span>
       </div>
-      <button class="btn ghost" id="helpBtn">遊び方</button>
+      <button class="btn ghost" id="helpBtn" aria-haspopup="dialog" aria-controls="help">遊び方</button>
       <button class="btn ghost" id="hintBtn">ヒント ON</button>
       <button class="btn ghost" id="undoBtn" disabled>元に戻す</button>
       <button class="btn strong" id="resetBtn">リセット</button>
@@ -98,29 +94,29 @@
   </header>
 
   <div id="stage">
-    <!-- 固定内部解像度：CSSでスケール -->
+    <!-- 固定内部解像度：CSSでスケール（見切れ防止） -->
     <canvas id="cv" width="360" height="640" aria-label="10 Game canvas"></canvas>
   </div>
 
   <footer>
-    指で左右に<strong>スライドしてね</strong>。<strong>指を離したら</strong>、その位置に投入（「タップ」は移動が小さい離し判定）。<br>
-    <b>足して10</b>で「10」に合体、<b>同じ大玉</b>は倍々に合体！
+    指で<strong>左右にスライドして狙う</strong> → <strong>指を離す（or 軽いタップ）</strong>で投入。<br>
+    <b>小玉</b>は<b>足して10</b>で「10」に<b>即合体</b>、<b>同じ大玉</b>は<b>倍々合体</b>！
   </footer>
 </div>
 
-<!-- ヘルプ -->
-<div id="help">
+<!-- ヘルプ（ダイアログ扱い） -->
+<div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
     <h3>🎮 遊び方（10 Game - DecaMerge）</h3>
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して、落とす位置を決めます。</li>
-      <li>位置が決まったら<strong>指を離す</strong>と、玉がその列に落ちます（<strong>スライド中は落ちません</strong>）。</li>
-      <li><strong>小さい数字同士</strong>が触れて合計が<strong>10</strong>になると、<strong>「10」玉</strong>に即合体！</li>
-      <li><strong>同じ大玉</strong>同士は合体して<strong>倍</strong>になります（10→20→40→80→…）。</li>
-      <li>緑のゴーストは「今の位置で投入するとすぐ合体」を示します。</li>
-      <li>誤操作したら<strong>元に戻す</strong>で1手戻せます。</li>
+      <li>位置が決まったら<strong>指を離す</strong>と、玉がその位置に落ちます（スライド中は落ちません）。</li>
+      <li><strong>1〜9</strong>は、触れて合計が<strong>10</strong>になると<strong>10玉に即合体</strong>します。</li>
+      <li><strong>10と10</strong>→<strong>20</strong>、<strong>20と20</strong>→<strong>40</strong>…のように<strong>同じ大玉</strong>は合体して<strong>倍</strong>になります。</li>
+      <li>バウンドは弱め。転がって<b>すぐ止まる</b>ので狙いやすいです。</li>
+      <li>上の赤線より上に玉が居続けると<b>ゲームオーバー</b>。<b>元に戻す</b>で1手やり直せます。</li>
     </ol>
-    <p style="color:var(--muted);font-size:13px">※ ヒントONで各玉の上に「10まであといくつ」を表示。暗算トレーニングに最適！</p>
+    <p style="color:var(--muted);font-size:13px">ヒントONで各玉の上に「10まであといくつ」を表示。暗算の練習に！</p>
     <div class="actions">
       <button class="btn ghost" id="closeHelp">閉じる</button>
       <button class="btn strong" id="okHelp">OK</button>
@@ -132,7 +128,7 @@
 
 <script>
 (()=> {
-  // ==== DOM ====
+  // ===== DOM =====
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const scoreEl = document.getElementById('score');
@@ -148,7 +144,7 @@
   const closeHelp = document.getElementById('closeHelp');
   const okHelp = document.getElementById('okHelp');
 
-  // ==== layout fit ====
+  // ===== layout fit =====
   function fit(){
     const maxW = Math.min(innerWidth - 24, 440);
     const ratio = maxW / cv.width;
@@ -157,34 +153,27 @@
   }
   addEventListener('resize', fit); fit();
 
-  // ==== physics constants (tuned for low bounce) ====
+  // ===== physics (低バウンド) =====
   const W = cv.width, H = cv.height;
   const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80;
-  const G = 1280;         // 1500 -> 1280 で跳ね過ぎ抑制
-  const DT = 1/60;
-  const FRICTION = 0.992; // 減衰強め
-  const REST = 0.01;      // 反発ほぼ無し
-  const MAX_BALLS = 90;
-  const VX_MAX = 900, VY_MAX = 2200;
+  const G = 1280, DT = 1/60, FRICTION = 0.992, REST = 0.01;
+  const MAX_BALLS = 90, VX_MAX = 900, VY_MAX = 2200;
 
-  // ==== state ====
-  /** @type {{x:number,y:number,vx:number,vy:number,r:number,val:number,lock:number,id:number}[]} */
-  let balls = [];
-  let rings = []; // merge rings
+  // ===== state =====
+  /** @type {{x:number,y:number,vx:number,vy:number,r:number,val:number,id:number}[]} */
+  let balls = [], rings = [];
   let score = 0, over = false, cooldown = 0;
-  let aimX = (LEFT+RIGHT)/2;
-  let next = randSmall();
-  let showHint = true;
-  let topDanger = 0;
-  let idSeq = 1;
+  let aimX = (LEFT+RIGHT)/2, next = randSmall(), showHint = true;
+  let topDanger = 0, idSeq = 1;
 
-  // pointer gesture state
-  let dragging = false, startX=0, startY=0, moved=0, downTime=0, activePointer=null;
+  // gesture / modal
+  let helpOpen = false;
+  let dragging = false, startX=0, moved=0, downTime=0, activePointer=null;
 
   // undo
   let undoState = null;
 
-  // ==== helpers ====
+  // ===== helpers =====
   const CSS = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
   const smallColor = (v)=>CSS('--n'+v);
   function bigColor(v){
@@ -195,20 +184,14 @@
     return CSS('--b10');
   }
   function radiusFor(v){
-    if (v<10) return 16 + v*1.9; // 1→17.9 … 9→33.1
-    const raw = 22 + Math.log2(v/10 + 1) * 21; // 10→43,20→~54,40→~65,80→~75
+    if (v<10) return 16 + v*1.9;
+    const raw = 22 + Math.log2(v/10 + 1) * 21;
     return Math.min(raw, 58);
   }
   function randSmall(){
     const r = Math.random();
-    if (r<0.15) return 1;
-    if (r<0.30) return 2;
-    if (r<0.47) return 3;
-    if (r<0.64) return 4;
-    if (r<0.78) return 5;
-    if (r<0.88) return 6;
-    if (r<0.94) return 7;
-    if (r<0.98) return 8;
+    if (r<0.15) return 1; if (r<0.30) return 2; if (r<0.47) return 3; if (r<0.64) return 4;
+    if (r<0.78) return 5; if (r<0.88) return 6; if (r<0.94) return 7; if (r<0.98) return 8;
     return 9;
   }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
@@ -223,18 +206,48 @@
     undoBtn.disabled = !undoState;
   }
 
-  // ==== pointer inputs (滑らかなスワイプ / 離したらタップ判定) ====
-  const TAP_DIST = 10;     // px
-  const TAP_TIME = 350;    // ms
+  // ===== modal open/close（ポインタ状態リセット付き） =====
+  function resetPointerState(){
+    try { if (activePointer!==null) cv.releasePointerCapture(activePointer); } catch(e){}
+    dragging=false; activePointer=null; moved=0;
+  }
+  function openHelp(){
+    helpOpen = true;
+    helpModal.setAttribute('open','');
+    resetPointerState();
+  }
+  function closeHelpModal(){
+    helpOpen = false;
+    helpModal.removeAttribute('open');
+    resetPointerState();
+  }
+  helpBtn.addEventListener('click', openHelp);
+  closeHelp.addEventListener('click', closeHelpModal);
+  okHelp.addEventListener('click', closeHelpModal);
+  helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
+  addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
 
+  // 初回のみヘルプ自動表示
+  if (!localStorage.getItem('decamerge_seen_help')) {
+    openHelp(); localStorage.setItem('decamerge_seen_help','1');
+  }
+
+  // ===== pointer inputs (スライド中は落ちない) =====
+  const TAP_DIST = 10, TAP_TIME = 350;
+  function canvasX(e){
+    const rect = cv.getBoundingClientRect();
+    const clientX = e.clientX ?? (e.touches && e.touches[0].clientX) ?? startX;
+    return (clientX - rect.left) * (cv.width/rect.width);
+  }
   function onPointerDown(e){
-    if (activePointer !== null) return; // 1本のみ
+    if (helpOpen) return;            // モーダル中は無効
+    if (activePointer !== null) return;
     cv.setPointerCapture(e.pointerId);
     activePointer = e.pointerId;
     dragging = true;
     const x = canvasX(e);
     aimX = clamp(x, LEFT, RIGHT);
-    startX = x; startY = e.clientY || 0; moved = 0; downTime = performance.now();
+    startX = x; moved = 0; downTime = performance.now();
   }
   function onPointerMove(e){
     if (!dragging || e.pointerId !== activePointer) return;
@@ -246,43 +259,33 @@
     if (e.pointerId !== activePointer) return;
     const elapsed = performance.now() - downTime;
     const wasTap = (moved < TAP_DIST) && (elapsed < TAP_TIME);
-    dragging = false; activePointer = null;
-    cv.releasePointerCapture(e.pointerId);
-    if (wasTap) drop();
+    resetPointerState();
+    if (!helpOpen && wasTap) drop();
   }
-
-  // fallback for touch browsers if PointerEvents disabled（iOSは対応済み）
   if (window.PointerEvent){
     cv.addEventListener('pointerdown', onPointerDown, {passive:false});
     cv.addEventListener('pointermove', onPointerMove, {passive:false});
     cv.addEventListener('pointerup',   onPointerUp,   {passive:false});
-    cv.addEventListener('pointercancel', ()=>{ dragging=false; activePointer=null; });
+    cv.addEventListener('pointercancel', ()=> resetPointerState(), {passive:true});
+    // どこで指を離しても最終的に状態をクリア（オーバーレイ上で離したケースを救済）
+    document.addEventListener('pointerup', ()=> resetPointerState(), {capture:true, passive:true});
+    window.addEventListener('blur', ()=> resetPointerState());
   }
 
   resetBtn.addEventListener('click', reset);
   hintBtn.addEventListener('click', ()=>{ showHint = !showHint; updateHUD(); });
   undoBtn.addEventListener('click', undo);
-  helpBtn.addEventListener('click', ()=> helpModal.style.display='flex');
-  closeHelp.addEventListener('click', ()=> helpModal.style.display='none');
-  okHelp.addEventListener('click', ()=> helpModal.style.display='none');
 
-  // 初回は自動でヘルプ表示
-  if (!localStorage.getItem('decamerge_seen_help')) {
-    helpModal.style.display='flex';
-    localStorage.setItem('decamerge_seen_help','1');
-  }
-
-  // ==== game control ====
+  // ===== game control =====
   function reset(){
-    balls = []; rings = []; score=0; over=false; cooldown=0; topDanger=0; aimX=(LEFT+RIGHT)/2; next=randSmall(); undoState=null;
+    balls = []; rings = []; score=0; over=false; cooldown=0; topDanger=0;
+    aimX=(LEFT+RIGHT)/2; next=randSmall(); undoState=null;
     updateHUD();
   }
   function snapshot(){
-    return {
-      balls: balls.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,val:b.val,lock:b.lock,id:b.id})),
-      rings: rings.map(r=>({...r})),
-      score, over, cooldown, topDanger, aimX, next
-    };
+    return { balls: balls.map(b=>({x:b.x,y:b.y,vx:b.vx,vy:b.vy,r:b.r,val:b.val,id:b.id})),
+             rings: rings.map(r=>({...r})),
+             score, over, cooldown, topDanger, aimX, next };
   }
   function restore(s){
     balls = s.balls.map(b=>({...b}));
@@ -292,67 +295,177 @@
   }
   function undo(){
     if (!undoState) return;
-    restore(undoState);
-    undoState = null;
-    toast('1手戻しました');
+    restore(undoState); undoState=null; toast('1手戻しました');
   }
   function drop(){
-    if (over || cooldown>0) return;
+    if (helpOpen || over || cooldown>0) return;
     if (balls.length>=MAX_BALLS){ toast('いっぱいです。合体で減らそう！'); return; }
-
-    // 1手アンドゥ
     undoState = snapshot();
-
-    const val = next;
-    const r = radiusFor(val);
+    const val = next, r = radiusFor(val);
     const x = clamp(aimX, LEFT+r+1, RIGHT-r-1);
-    // 新規玉は「即合体OK」=> lockSmall=0
-    balls.push({x, y: CEIL-30, vx:0, vy:0, r, val, lock: (val<10? 0 : 10), id:idSeq++});
-    score += val; // 投入ボーナス
-    next = randSmall();
-    cooldown = .18; // 連打防止 少し短く
-    updateHUD();
+    balls.push({x, y: CEIL-30, vx:0, vy:0, r, val, id:idSeq++});
+    score += val; next = randSmall(); cooldown = .18; updateHUD();
   }
 
-  // ==== physics step ====
+  // ===== physics step =====
   function step(dt){
     cooldown = Math.max(0, cooldown-dt);
-
-    // gravity & move
     for (const b of balls){
       b.vy += G*dt;
       b.vx *= FRICTION; b.vy *= FRICTION;
-      // 速度クランプ（跳ねすぎ防止）
       b.vx = clamp(b.vx, -VX_MAX, VX_MAX);
       b.vy = clamp(b.vy, -VY_MAX, VY_MAX);
       b.x  += b.vx*dt;  b.y  += b.vy*dt;
 
-      // walls
-      if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -b.vx*(1-REST); }
-      if (b.x + b.r > RIGHT){ b.x = RIGHT - b.r; b.vx = -b.vx*(1-REST); }
+      if (b.x - b.r < LEFT){ b.x = LEFT + b.r; b.vx = -Math.abs(b.vx)*(1-REST); }
+      if (b.x + b.r > RIGHT){ b.x = RIGHT - b.r; b.vx =  Math.abs(b.vx)*(-1+REST); }
       if (b.y + b.r > FLOOR){
         b.y = FLOOR - b.r;
-        if (Math.abs(b.vy) < 30) b.vy = 0; else b.vy = -b.vy*(1-REST); // しきい値を低めに
+        if (Math.abs(b.vy) < 30) b.vy = 0; else b.vy = -b.vy*(1-REST);
+        if (b.vy === 0){ b.vx *= 0.96; if (Math.abs(b.vx)<5) b.vx = 0; }
       }
-      if (b.lock>0) b.lock--;
       if (b.y - b.r < 0) topDanger += dt;
     }
 
-    // pairwise collision resolve（より非弾性）
+    // 衝突（非弾性寄り）
     for (let i=0;i<balls.length;i++){
       for (let j=i+1;j<balls.length;j++){
         const A = balls[i], B = balls[j];
         const dx = B.x - A.x, dy = B.y - A.y;
-        const dist = Math.hypot(dx,dy);
-        const minD = A.r + B.r;
+        const dist = Math.hypot(dx,dy), minD = A.r + B.r;
         if (dist>0 && dist < minD){
-          const nx = dx/dist, ny = dy/dist;
-          const overlap = (minD - dist);
-          // separate
+          const nx = dx/dist, ny = dy/dist, overlap = (minD - dist);
           A.x -= nx*overlap*0.5; A.y -= ny*overlap*0.5;
           B.x += nx*overlap*0.5; B.y += ny*overlap*0.5;
-          // dampened bounce（さらに弱く）
           const rvx = B.vx - A.vx, rvy = B.vy - A.vy;
-          const vn = rvx*nx + rvy*ny;
-          const imp = -vn*0.3; // 0.6 → 0.3 で反発低減
-          A.vx -= imp*nx; A.vy -= imp*ny; B.vx += imp
+          const vn = rvx*nx + rvy*ny, imp = -vn*0.28;
+          A.vx -= imp*nx; A.vy -= imp*ny; B.vx += imp*nx; B.vy += imp*ny;
+        }
+      }
+    }
+
+    // 即時合体（多段パス）
+    let mergedAny, pass=0;
+    do{ mergedAny = tryMerges(); pass++; } while(mergedAny && pass<8);
+
+    for (const r of rings){ r.t += dt; }
+    rings = rings.filter(r=>r.t<0.9);
+
+    if (topDanger > 1.4 && !over){ over = true; toast('GAME OVER! 元に戻す or リセット'); }
+    if (!balls.some(b=>b.y-b.r<0)) topDanger = 0;
+  }
+
+  function tryMerges(){
+    const removed = new Set(); let changed = false;
+    for (let i=0;i<balls.length;i++){
+      const A = balls[i]; if (removed.has(A.id)) continue;
+      for (let j=i+1;j<balls.length;j++){
+        const B = balls[j]; if (removed.has(B.id)) continue;
+        const dx = B.x - A.x, dy = B.y - A.y;
+        const dist = Math.hypot(dx,dy), slack = 2;
+        if (dist <= A.r + B.r - slack){
+          let outVal=null;
+          if (A.val<10 && B.val<10 && A.val + B.val === 10) outVal = 10;
+          else if (A.val>=10 && A.val === B.val) outVal = A.val * 2;
+          if (outVal!==null){
+            const nx = (A.x+B.x)/2, ny=(A.y+B.y)/2;
+            const nr = radiusFor(outVal);
+            balls.push({x:nx,y:ny,vx:(A.vx+B.vx)*0.1,vy:(A.vy+B.vy)*0.1,r:nr,val:outVal,id:idSeq++});
+            removed.add(A.id); removed.add(B.id);
+            rings.push({x:nx,y:ny,t:0,col: outVal<10? smallColor(outVal) : bigColor(outVal)});
+            if (outVal===10) score += 25; else score += Math.max(30,outVal);
+            changed = true; break;
+          }
+        }
+      }
+    }
+    if (removed.size){ balls = balls.filter(b=>!removed.has(b.id)); updateHUD(); }
+    return changed;
+  }
+
+  // ===== draw =====
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
+    roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
+    ctx.strokeStyle = 'rgba(226,78,82,.5)'; ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke();
+
+    const rN = radiusFor(next);
+    const ax = clamp(aimX, LEFT+rN+1, RIGHT-rN-1);
+    ctx.globalAlpha = .28; drawBall(ax, CEIL-30, rN, next); ctx.globalAlpha = 1;
+
+    for (const b of balls){ drawBall(b.x,b.y,b.r,b.val); }
+
+    for (const rr of rings){
+      ctx.globalAlpha = Math.max(0, 1 - rr.t*1.1);
+      ctx.strokeStyle = rr.col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(rr.x, rr.y, 8 + rr.t*42, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    if (over){
+      ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='bold 32px system-ui'; ctx.fillText('GAME OVER', W/2, H*0.42);
+      ctx.font='16px system-ui'; ctx.fillText('「元に戻す」または「リセット」', W/2, H*0.58);
+    }
+  }
+  function drawBall(x,y,r,val){
+    const base = val<10 ? smallColor(val) : bigColor(val);
+    const g = ctx.createRadialGradient(x-r*0.45,y-r*0.45,r*0.28, x,y,r);
+    g.addColorStop(0,'#fff'); g.addColorStop(1, base);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold '+Math.floor(r*0.9)+'px system-ui'; ctx.fillText(val, x, y+1);
+    if (showHint && val<10){
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font=Math.floor(r*0.42)+'px system-ui';
+      ctx.fillText(10-val, x, y - r*0.95);
+    }
+  }
+  function roundRectPath(x,y,w,h,r){
+    ctx.beginPath(); ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  // ===== toast =====
+  function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1300); }
+
+  // ===== loop =====
+  let acc=0, last=performance.now();
+  function loop(now){
+    const dt = (now-last)/1000; last=now; acc += dt;
+    while(acc>DT){ step(DT); acc-=DT; }
+    draw(); requestAnimationFrame(loop);
+  }
+
+  // boot
+  reset(); updateHUD(); requestAnimationFrame(loop);
+})();
+</script>
+
+<!-- Service Worker（オフライン対応・動的生成） -->
+<script>
+if ('serviceWorker' in navigator) {
+  const code = `
+    const CACHE='10game-decamerge-v15';
+    self.addEventListener('install',e=>{
+      e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
+      self.skipWaiting();
+    });
+    self.addEventListener('activate',e=>{
+      e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE&&caches.delete(k)))));
+      self.clients.claim();
+    });
+    self.addEventListener('fetch',e=>{
+      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request)));
+    });
+  `;
+  const blob = new Blob([code], {type:'application/javascript'});
+  const url = URL.createObjectURL(blob);
+  addEventListener('load', () => navigator.serviceWorker.register(url));
+}
+</script>
+</body>
+</html>
