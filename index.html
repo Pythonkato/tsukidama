@@ -376,7 +376,7 @@
   // ===== merging =====
   // 小玉は「隣り合い」＝ 半径和 + tol、で接続。大玉は「わずかに重なり必須」。
   const CONTACT_TOL_SMALL = 6.0;   // 判定ゆるめ
-  const MERGE_OVERLAP_BIG = 1.0;   // 大玉は1px重なり
+  const MERGE_OVERLAP_BIG = 2.0;   // 大玉は1px重なり
 
   function touchingSmall(a,b){
     const dx=b.x-a.x, dy=b.y-a.y, dist=Math.hypot(dx,dy);
