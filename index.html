@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>🌕 つきだま - Tsukidama</title>
+  <meta name="theme-color" content="#0b1020">
+
+  <!-- アイコン（簡易：1x1 PNGの白、data URL。必要なら後で差し替え可） -->
+  <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
+
+  <!-- Web App Manifest（data URL アイコンを内蔵） -->
+  <script type="application/manifest+json">
+  {
+    "name": "つきだま - Tsukidama",
+    "short_name": "つきだま",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0b1020",
+    "theme_color": "#0b1020",
+    "icons": [
+      {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes": "192x192", "type": "image/png"}
+    ]
+  }
+  </script>
+
+  <style>
+    html, body { margin:0; padding:0; height:100%; background:#0b1020; color:#fff; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Sans", "Helvetica Neue", Arial, sans-serif; }
+    #wrap { display:flex; flex-direction:column; height:100%; }
+    header { padding:10px 12px; display:flex; align-items:center; justify-content:space-between; }
+    .title { font-weight:700; letter-spacing:0.04em; }
+    .btn { background:#1b2450; border:none; color:#fff; padding:8px 12px; border-radius:10px; font-size:14px; }
+    .row { display:flex; align-items:center; gap:8px; }
+    #game { flex:1; display:flex; align-items:center; justify-content:center; }
+    canvas { touch-action: none; }
+    footer { padding:10px 12px; display:flex; justify-content:space-between; align-items:center; font-size:14px; }
+    .chip { background:#142042; border-radius:8px; padding:6px 10px; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <header>
+      <div class="row">
+        <div class="title">🌕 つきだま</div>
+        <div id="version" class="chip">one-file v1.0</div>
+      </div>
+      <div class="row">
+        <button id="resetBtn" class="btn">リセット</button>
+      </div>
+    </header>
+
+    <div id="game">
+      <canvas id="canvas" width="390" height="690" aria-label="Tsukidama game canvas"></canvas>
+    </div>
+
+    <footer>
+      <div class="chip">スコア: <span id="score">0</span> / ベスト: <span id="best">0</span></div>
+      <div class="chip">次: <span id="nextLabel">-</span></div>
+    </footer>
+  </div>
+
+  <!-- ======== ゲームロジック（script.js 相当） ======== -->
+  <script>
+  (() => {
+    const cvs = document.getElementById('canvas');
+    const ctx = cvs.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const bestEl = document.getElementById('best');
+    const nextLabel = document.getElementById('nextLabel');
+    const resetBtn = document.getElementById('resetBtn');
+
+    // 盤設定
+    const COLS = 7;
+    const ROWS = 12;
+    const LEVEL_MAX = 5; // 0..5（5が満月・爆発）
+    const CELL_MARGIN = 2;
+
+    // 緩やかな“風”（左右スウェイ）
+    let wind = 1;       // -1 左 / 1 右
+    let windTimer = 0;
+
+    // 状態
+    let grid;
+    let score = 0;
+    let nextPiece = randPiece();
+    let over = false;
+
+    function cellSize() {
+      const pad = 16;
+      const availW = Math.min(window.innerWidth, 520) - pad * 2;
+      const size = Math.floor(availW / COLS);
+      const h = size * ROWS;
+      cvs.width = size * COLS;
+      cvs.height = h;
+      return size;
+    }
+    let SIZE = cellSize();
+    window.addEventListener('resize', () => {
+      SIZE = cellSize();
+      draw();
+    });
+
+    function init() {
+      grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+      score = 0;
+      nextPiece = randPiece();
+      over = false;
+      loadBest();
+      draw();
+      nextLabel.textContent = phaseName(nextPiece);
+    }
+
+    function loadBest() {
+      bestEl.textContent = Number(localStorage.getItem('tsukidama_best') || 0);
+    }
+    function saveBest() {
+      const best = Number(localStorage.getItem('tsukidama_best') || 0);
+      if (score > best) localStorage.setItem('tsukidama_best', score);
+      loadBest();
+    }
+
+    function randPiece() {
+      // 低レベルが出やすい（ゲーム序盤のやさしさ）
+      const r = Math.random();
+      if (r < 0.60) return 0;
+      if (r < 0.88) return 1;
+      if (r < 0.97) return 2;
+      return 3;
+    }
+
+    function dropAt(col) {
+      if (over) return;
+      // 落下先の行を探す
+      let r = ROWS - 1;
+      while (r >= 0 && grid[r][col] !== null) r--;
+      if (r < 0) {
+        // 置けない＝天井 → ゲームオーバー
+        over = true;
+        saveBest();
+        toast("ゲームオーバー！リセットで再挑戦👍");
+        draw();
+        return;
+      }
+      grid[r][col] = nextPiece;
+      score += (nextPiece + 1) * 2;
+      nextPiece = randPiece();
+      nextLabel.textContent = phaseName(nextPiece);
+      settle();
+    }
+
+    function phaseName(n) {
+      return ["新月","三日月","半月","十三夜","満月直前","満月"][n] || String(n);
+    }
+
+    function settle() {
+      // 重力（＋斜めのスウェイ）
+      let moved;
+      let iterations = 0;
+      do {
+        moved = false;
+        windTimer++;
+        if (windTimer % 16 === 0) wind *= -1;
+        for (let r = ROWS - 2; r >= 0; r--) {
+          for (let c = 0; c < COLS; c++) {
+            const v = grid[r][c];
+            if (v === null) continue;
+            if (grid[r+1][c] === null) {
+              grid[r+1][c] = v; grid[r][c] = null; moved = true;
+            } else {
+              // 風向きに斜め落下を試す
+              const dc = wind;
+              const nc = c + dc;
+              if (nc >= 0 && nc < COLS && grid[r+1][nc] === null && grid[r][nc] === null) {
+                grid[r+1][nc] = v; grid[r][c] = null; moved = true;
+              }
+            }
+          }
+        }
+        iterations++;
+      } while (moved && iterations < 200);
+
+      // 合体（同レベルが3つ以上の連結成分）
+      let combo = 0;
+      while (true) {
+        const marked = [];
+        for (let i=0;i<ROWS;i++) marked.push(Array(COLS).fill(false));
+        const toMerge = []; // {cells:[[r,c],...], level}
+
+        for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+          const v = grid[r][c];
+          if (v===null || marked[r][c]) continue;
+          const comp = [];
+          const q = [[r,c]];
+          marked[r][c]=true;
+          while (q.length) {
+            const [rr,cc] = q.pop();
+            comp.push([rr,cc]);
+            const nbrs = [[1,0],[-1,0],[0,1],[0,-1]];
+            for (const [dr,dc] of nbrs) {
+              const nr=rr+dr, nc=cc+dc;
+              if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!marked[nr][nc]&&grid[nr][nc]===v) {
+                marked[nr][nc]=true;
+                q.push([nr,nc]);
+              }
+            }
+          }
+          if (comp.length >= 3) {
+            toMerge.push({cells:comp, level:v});
+          }
+        }
+
+        if (toMerge.length===0) break;
+
+        combo++;
+        let boomCenters = [];
+        for (const g of toMerge) {
+          // 結果を置くセル＝もっとも下（同列なら右）
+          let target = g.cells[0];
+          for (const [r,c] of g.cells) {
+            if (r > target[0] || (r===target[0] && c>target[1])) target=[r,c];
+          }
+          // すべて消して1段階上を target に置く
+          for (const [r,c] of g.cells) grid[r][c]=null;
+          const newLevel = Math.min(g.level+1, LEVEL_MAX);
+          const [tr,tc]=target;
+          grid[tr][tc]=newLevel;
+
+          const base = (g.level+1) * g.cells.length * (10 + combo*5);
+          score += base;
+
+          // 満月なら爆発予約
+          if (newLevel===LEVEL_MAX) boomCenters.push([tr,tc]);
+        }
+
+        // 満月爆発（3x3消去）
+        for (const [r,c] of boomCenters) {
+          for (let dr=-1; dr<=1; dr++) for (let dc=-1; dc<=1; dc++) {
+            const nr=r+dr, nc=c+dc;
+            if (nr>=0&&nr<ROWS&&nc>=0&&nc<COLS) {
+              if (!(nr===r && nc===c)) {
+                if (grid[nr][nc]!==null) score += 8*(combo+1);
+                grid[nr][nc]=null;
+              }
+            }
+          }
+        }
+
+        // 合体後の落下
+        let moved2, guard=0;
+        do {
+          moved2=false;
+          for (let r=ROWS-2;r>=0;r--) for (let c=0;c<COLS;c++) {
+            const v=grid[r][c];
+            if (v!==null && grid[r+1][c]===null) {
+              grid[r+1][c]=v; grid[r][c]=null; moved2=true;
+            }
+          }
+          guard++;
+        } while (moved2 && guard<200);
+      }
+
+      scoreEl.textContent = score;
+      saveBest();
+      draw();
+
+      // 天井チェック
+      for (let c=0;c<COLS;c++) if (grid[0][c]!==null) { over = true; break; }
+      if (over) toast("ゲームオーバー！リセットで再挑戦👍");
+    }
+
+    function drawCell(r,c,v) {
+      const x = c * SIZE, y = r * SIZE;
+      const cx = x + SIZE/2, cy = y + SIZE/2;
+      const rad = (SIZE - CELL_MARGIN*2)/2;
+
+      // 背景セル
+      ctx.fillStyle = '#0f1735';
+      ctx.fillRect(x+1, y+1, SIZE-2, SIZE-2);
+
+      if (v===null) return;
+
+      // レベルに応じた月色
+      const palette = ['#8aa5ff','#b3d1ff','#ffe08a','#ffd1e3','#baffc9','#ffffff'];
+      ctx.beginPath();
+      ctx.arc(cx, cy, rad, 0, Math.PI*2);
+      ctx.fillStyle = palette[Math.min(v, palette.length-1)];
+      ctx.fill();
+
+      // 位相の影
+      ctx.beginPath();
+      const phase = v / (LEVEL_MAX);
+      ctx.arc(cx - rad*0.3, cy, rad*0.9, -Math.PI/2, Math.PI/2, false);
+      ctx.globalAlpha = 0.18 + phase*0.15;
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      // ラベル
+      ctx.fillStyle = '#172042';
+      ctx.font = `${Math.floor(SIZE*0.32)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(v), cx, cy);
+    }
+
+    function drawGrid() {
+      ctx.fillStyle = '#0b1020';
+      ctx.fillRect(0,0,cvs.width,cvs.height);
+      for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+        drawCell(r,c,grid[r][c]);
+      }
+      // 列のガイド
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      for (let c=1;c<COLS;c++) {
+        ctx.beginPath();
+        ctx.moveTo(c*SIZE, 0); ctx.lineTo(c*SIZE, cvs.height);
+        ctx.stroke();
+      }
+    }
+
+    function drawHUD() {
+      // 軽いトップオーバーレイ
+      ctx.fillStyle = 'rgba(20,25,55,0.6)';
+      ctx.fillRect(0,0,cvs.width, Math.floor(SIZE*0.9));
+
+      if (over) {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(0,0,cvs.width,cvs.height);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = `bold ${Math.floor(SIZE*0.6)}px system-ui`;
+        ctx.fillText('GAME OVER', cvs.width/2, cvs.height*0.42);
+        ctx.font = `${Math.floor(SIZE*0.35)}px system-ui`;
+        ctx.fillText('タップで列を選んでドロップ', cvs.width/2, cvs.height*0.60);
+      }
+    }
+
+    function draw() {
+      drawGrid();
+      drawHUD();
+    }
+
+    // 入力（タップ/クリックで列選択）
+    function handlePos(clientX) {
+      const rect = cvs.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const col = Math.max(0, Math.min(COLS-1, Math.floor(x / SIZE)));
+      return col;
+    }
+    cvs.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      const col = handlePos(touch.clientX);
+      dropAt(col);
+      draw();
+    }, {passive:false});
+    cvs.addEventListener('touchmove', (e) => { e.preventDefault(); }, {passive:false});
+    cvs.addEventListener('mousedown', (e) => {
+      const col = handlePos(e.clientX);
+      dropAt(col);
+    });
+
+    // トースト表示
+    let toastTimer = 0, toastMsg = '';
+    function toast(msg) {
+      toastMsg = msg; toastTimer = 90;
+    }
+    function drawToast() {
+      if (toastTimer > 0) {
+        toastTimer--;
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, toastTimer/20);
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        const w = cvs.width * 0.9, h = 44;
+        ctx.fillRect((cvs.width-w)/2, cvs.height*0.75, w, h);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = '16px system-ui';
+        ctx.fillText(toastMsg, cvs.width/2, cvs.height*0.75 + h/2);
+        ctx.restore();
+      }
+    }
+
+    // ループ（HUD/トーストの描画）
+    function loop() {
+      draw();
+      drawToast();
+      requestAnimationFrame(loop);
+    }
+
+    // ボタン
+    resetBtn.addEventListener('click', () => init());
+
+    // 開始
+    init();
+    loop();
+  })();
+  </script>
+
+  <!-- ======== Service Worker（sw.js 相当を動的生成） ======== -->
+  <script>
+  if ('serviceWorker' in navigator) {
+    const swCode = `
+      const CACHE = 'tsukidama-onefile-v1';
+      const ASSETS = ['./'];
+
+      self.addEventListener('install', (e) => {
+        e.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
+        self.skipWaiting();
+      });
+
+      self.addEventListener('activate', (e) => {
+        e.waitUntil(caches.keys().then(keys => Promise.all(keys.map(k => k!==CACHE && caches.delete(k)))));
+        self.clients.claim();
+      });
+
+      self.addEventListener('fetch', (e) => {
+        e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+      });
+    `;
+    const blob = new Blob([swCode], { type: 'application/javascript' });
+    const swURL = URL.createObjectURL(blob);
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register(swURL);
+    });
+  }
+  </script>
+</body>
+</html>
