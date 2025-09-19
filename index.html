@@ -2,98 +2,122 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1, user-scalable=no">
-<title>🔟 TenDrop - 10ドロップ（PWA, 1-file）</title>
-<meta name="theme-color" content="#fffdf7">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>TenDrop v5 — Somma</title>
+<meta name="theme-color" content="#F6F3EE">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-<!-- シンプル1px白PNG（後で差し替え可） -->
+<!-- 極小プレースホルダーアイコン（必要に応じ差し替え） -->
 <link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=">
 
 <!-- Manifest（内蔵） -->
 <script type="application/manifest+json">
 {
-  "name": "TenDrop - 10ドロップ",
+  "name": "TenDrop — Somma",
   "short_name": "TenDrop",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#fffdf7",
-  "theme_color": "#fffdf7",
+  "background_color": "#F6F3EE",
+  "theme_color": "#F6F3EE",
   "icons": [
-    {"src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=", "sizes": "192x192", "type":"image/png"}
+    {"src":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAukB9Wj1nZkAAAAASUVORK5CYII=","sizes":"192x192","type":"image/png"}
   ]
 }
 </script>
 
 <style>
   :root{
-    --bg1:#fffdf7; --bg2:#fff3d6; --line:#e9e2d6; --ink:#222; --ink2:#666;
-    --chip:#fff; --acc:#00b894; --danger:#ff6b6b;
-    --c1:#ff7675; --c2:#fab1a0; --c3:#ffeaa7; --c4:#55efc4; --c5:#81ecec;
-    --c6:#74b9ff; --c7:#a29bfe; --c8:#fd79a8; --c9:#fdcb6e;
+    /* Euro/Italian palette */
+    --bg:#F6F3EE; --paper:#FFFFFF; --ink:#1B1B1B; --muted:#6D7280; --line:#E6E0D7; --chip:#FAF8F4;
+    --accent:#E24E52; --accent2:#157A6E; --ok:#12B886; --warn:#E8590C;
+
+    /* number tones */
+    --n1:#E96B6B; --n2:#F0A27A; --n3:#F3D277;
+    --n4:#90CDBF; --n5:#BDE0FE; --n6:#7CB7F3;
+    --n7:#B7A4E8; --n8:#F48BC6; --n9:#D3AE63;
   }
-  html,body{margin:0;height:100%;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans JP","Hiragino Sans","Helvetica Neue",Arial,sans-serif;}
-  #wrap{display:flex;flex-direction:column;height:100%;}
-  header{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-  .row{display:flex;align-items:center;gap:8px}
-  .title{font-weight:800;letter-spacing:.02em}
-  .btn{border:none;border-radius:12px;padding:8px 12px;background:#111;color:#fff;font-weight:700}
-  .btn.ghost{background:#fff;color:#111;border:1px solid var(--line)}
-  .chip{background:var(--chip);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
-  #stage{flex:1;display:flex;align-items:center;justify-content:center}
-  canvas{touch-action:none;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 30px rgba(0,0,0,.08)}
-  footer{padding:8px 12px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-  .hint{color:var(--ink2)}
-  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s;pointer-events:none}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:radial-gradient(1200px 600px at 50% -10%,#FFF,#F6F3EE 55%);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Segoe UI",Roboto,"Noto Sans JP",Arial,sans-serif;}
+  #wrap{min-height:100%;display:flex;flex-direction:column}
+
+  header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:baseline;gap:10px}
+  .ttl{font-weight:800;letter-spacing:.02em}
+  .sub{color:var(--muted);font-size:12px;letter-spacing:.04em}
+  .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chip{background:var(--chip);border:1px solid var(--line);padding:8px 10px;border-radius:12px}
+  .btn{border:1px solid var(--line);padding:8px 12px;border-radius:12px;background:#fff;font-weight:700}
+  .btn.strong{border-color:transparent;background:var(--ink);color:#fff}
+  .btn.ghost{background:#fff}
+  .btn:disabled{opacity:.45}
+  .nextBadge{display:flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border-radius:14px;padding:8px 12px;font-weight:800}
+  .nextCircle{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;font-size:18px}
+  .pair{opacity:.85;font-size:12px}
+
+  #stage{flex:1;display:flex;align-items:center;justify-content:center;padding:14px}
+  canvas{touch-action:none;background:var(--paper);border:1px solid var(--line);border-radius:16px;
+    box-shadow:0 8px 40px rgba(0,0,0,.06)}
+
+  footer{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center}
+
+  /* Settings modal */
+  #settings{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;padding:18px}
+  #settings .card{width:min(520px,92vw);background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px}
+  #settings h3{margin:.2em 0 .6em;font-size:18px}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff}
+  .pill.active{background:var(--accent2);color:#fff;border-color:var(--accent2)}
+  .modalActions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+  .small{font-size:12px;color:var(--muted)}
+
+  /* Toast */
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#111;color:#fff;border-radius:10px;padding:10px 14px;opacity:0;transition:.25s}
   .toast.show{opacity:1}
-  #help{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:center;justify-content:center;padding:18px}
-  #help .card{max-width:520px;background:#fff;border-radius:16px;padding:18px;border:1px solid var(--line);color:#222}
-  #help h3{margin:.2em 0 .4em 0}
-  #help li{margin:.25em 0}
-  .dangerLine{position:absolute;left:50%;transform:translateX(-50%);top:70px;width:min(420px, calc(100% - 32px));height:0;border-top:2px dashed var(--danger);pointer-events:none}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
-    <div class="row">
-      <div class="title">🔟 TenDrop - 10ドロップ</div>
-      <div id="ver" class="chip">PWA one-file v1</div>
+    <div class="brand">
+      <div class="ttl">TenDrop</div>
+      <div class="sub">Somma a <span id="targetLabel">10</span></div>
     </div>
-    <div class="row">
+    <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
-      <div class="chip">Next: <b id="nextNum">-</b>（ペア <b id="pairNum">-</b>）</div>
-      <button id="hintBtn" class="btn ghost">ヒント ON</button>
-      <button id="helpBtn" class="btn ghost">遊び方</button>
-      <button id="resetBtn" class="btn">リセット</button>
+      <div class="nextBadge">
+        Next <div class="nextCircle" id="nextCircle">-</div>
+        <span class="pair">→ 補数 <b id="pairNum">-</b></span>
+      </div>
+      <button class="btn ghost" id="hintBtn">ヒント ON</button>
+      <button class="btn ghost" id="undoBtn" disabled>元に戻す</button>
+      <button class="btn ghost" id="settingsBtn">設定</button>
+      <button class="btn strong" id="resetBtn">リセット</button>
     </div>
   </header>
 
-  <div id="stage" style="position:relative">
-    <div class="dangerLine"></div>
-    <canvas id="cv" width="360" height="640" aria-label="TenDrop game canvas"></canvas>
+  <div id="stage">
+    <!-- 小さめキャンバス＋自動フィット：下が見切れない -->
+    <canvas id="cv" width="320" height="480" aria-label="TenDrop game canvas"></canvas>
   </div>
 
   <footer>
-    <div class="hint">列をタップ → 数字の玉を落とす。<b>上下左右で10</b>になったペアは消える。落ちて連鎖で高得点！</div>
+    列をタップして数字を落とす。<strong>上下左右で合計が目標値</strong>になった数字は消える。落ちて連鎖で高得点。
   </footer>
 </div>
 
-<div id="help">
+<!-- 設定モーダル -->
+<div id="settings">
   <div class="card">
-    <h3>🎮 遊び方（10ドロップ）</h3>
-    <ol>
-      <li>画面の列をタップすると、その列に<strong>数字の玉</strong>が落ちます（1〜9）。</li>
-      <li>上下左右で隣り合う数字が<strong>合計10</strong>になると、<b>そのペアは消滅</b>します。</li>
-      <li>消えた後は上から落ちて、また10になれば<strong>連鎖</strong>！</li>
-      <li><b>Next</b>の右にある「ペア」は10にするための補数（例：Nextが4ならペアは6）。</li>
-      <li>上の破線より上まで詰まると<strong>ゲームオーバー</strong>。ベストは端末に保存されます。</li>
-    </ol>
-    <p class="hint">ヒントONにすると、各マスに「10まであといくつ」が薄く表示され、暗算トレーニングになります。</p>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
-      <button id="closeHelp" class="btn">OK</button>
+    <h3>設定（Impostazioni）</h3>
+    <div class="small" style="margin-bottom:6px">目標合計（Somma target）</div>
+    <div class="row" id="targetRow"></div>
+    <div class="small" style="margin-top:12px;margin-bottom:6px">盤サイズ（列×行）</div>
+    <div class="row" id="sizeRow"></div>
+    <div class="modalActions">
+      <button class="btn ghost" id="closeSettings">閉じる</button>
+      <button class="btn strong" id="applySettings">適用</button>
     </div>
   </div>
 </div>
@@ -102,274 +126,373 @@
 
 <script>
 (() => {
-  // ===== 基本設定 =====
+  // ===== DOM =====
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
   const scoreEl = document.getElementById('score');
   const bestEl  = document.getElementById('best');
-  const nextNumEl = document.getElementById('nextNum');
+  const nextCircle = document.getElementById('nextCircle');
   const pairNumEl = document.getElementById('pairNum');
+  const targetLabel = document.getElementById('targetLabel');
+
   const resetBtn = document.getElementById('resetBtn');
   const hintBtn = document.getElementById('hintBtn');
-  const helpBtn = document.getElementById('helpBtn');
-  const helpModal = document.getElementById('help');
-  const closeHelp = document.getElementById('closeHelp');
+  const undoBtn = document.getElementById('undoBtn');
+  const settingsBtn = document.getElementById('settingsBtn');
+  const settingsModal = document.getElementById('settings');
+  const closeSettings = document.getElementById('closeSettings');
+  const applySettings = document.getElementById('applySettings');
+  const targetRow = document.getElementById('targetRow');
+  const sizeRow = document.getElementById('sizeRow');
   const toastEl = document.getElementById('toast');
 
-  // 盤面
-  const COLS = 6, ROWS = 12; // シンプルに
-  const PAD = 16;            // キャンバス左右余白
-  const CEIL_Y = 70;         // 危険ライン（px）
-  let CELL = Math.floor((cv.width - PAD*2)/COLS);
-  const TOP = 90, BOTTOM = cv.height - 16;
+  // ===== CSS helpers =====
+  const CSS = (n)=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const COLORS = {1:CSS('--n1'),2:CSS('--n2'),3:CSS('--n3'),4:CSS('--n4'),5:CSS('--n5'),6:CSS('--n6'),7:CSS('--n7'),8:CSS('--n8'),9:CSS('--n9')};
 
-  // 状態
+  // ===== Config / State =====
+  let COLS = +(localStorage.getItem('tendrop_cols')||6);
+  let ROWS = +(localStorage.getItem('tendrop_rows')||10);
+  let TARGET = +(localStorage.getItem('tendrop_target')||10);
+
+  let PADX = 16, PADY = 56;
+  let CELL = Math.floor((cv.width - PADX*2) / COLS);
+
   /** @type {(number|null)[][]} */
   let grid;
-  let score = 0;
-  let next = randNext();
+  let score = 0, over = false, next = 1;
   let showHint = true;
-  let over = false;
 
-  // 色（1〜9）
-  const COLORS = {
-    1:'var(--c1)',2:'var(--c2)',3:'var(--c3)',4:'var(--c4)',5:'var(--c5)',
-    6:'var(--c6)',7:'var(--c7)',8:'var(--c8)',9:'var(--c9)'
-  };
+  // hover/preview
+  let hoverCol = null;
+  let previewHit = false; // その列に置くと即マッチが起きるか
+  // undo
+  let undoState = null; // {grid, score, next}
 
-  // 画面サイズに合わせた表示スケール
+  // ===== fit to screen =====
   function fit(){
-    const w = Math.min(innerWidth - 32, 420);
-    const ratio = w / cv.width;
-    cv.style.width = w+'px';
-    cv.style.height = (cv.height*ratio)+'px';
-    CELL = Math.floor((cv.width - PAD*2)/COLS);
+    const maxW = Math.min(innerWidth - 24, 420);
+    const ratio = maxW / cv.width;
+    cv.style.width = maxW + 'px';
+    cv.style.height = (cv.height * ratio) + 'px';
+    CELL = Math.floor((cv.width - PADX*2) / COLS);
+    draw();
   }
-  addEventListener('resize', fit); fit();
+  addEventListener('resize', fit);
 
-  // 初期化
+  // ===== init =====
   function init(){
-    grid = Array.from({length:ROWS}, ()=> Array(COLS).fill(null));
-    score = 0; over = false; next = randNext();
-    updateHUD(); draw();
+    grid = Array.from({length:ROWS},()=>Array(COLS).fill(null));
+    score = 0; over = false;
+    next = randNext();
+    undoState = null;
+    updateHUD();
+    draw();
   }
 
-  // 次の数字（1〜9）。低い数多め
   function randNext(){
     const r = Math.random();
-    if (r<0.15) return 1;
-    if (r<0.30) return 2;
-    if (r<0.45) return 3;
-    if (r<0.60) return 4;
-    if (r<0.75) return 5;
-    if (r<0.86) return 6;
-    if (r<0.93) return 7;
+    if (r<0.16) return 1;
+    if (r<0.32) return 2;
+    if (r<0.48) return 3;
+    if (r<0.64) return 4;
+    if (r<0.78) return 5;
+    if (r<0.88) return 6;
+    if (r<0.94) return 7;
     if (r<0.98) return 8;
     return 9;
   }
 
+  function bestKey(){ return 'tendrop_best_'+TARGET+'_'+COLS+'x'+ROWS; }
+
   function updateHUD(){
     scoreEl.textContent = score;
-    const best = +(localStorage.getItem('tendrop_best')||0);
-    if (score>best) localStorage.setItem('tendrop_best', score);
-    bestEl.textContent = localStorage.getItem('tendrop_best')||0;
-    nextNumEl.textContent = next;
-    pairNumEl.textContent = (10-next);
-    hintBtn.textContent = showHint? 'ヒント OFF':'ヒント ON';
+    const best = +(localStorage.getItem(bestKey())||0);
+    if (score > best) localStorage.setItem(bestKey(), score);
+    bestEl.textContent = localStorage.getItem(bestKey()) || 0;
+    nextCircle.textContent = next;
+    pairNumEl.textContent = TARGET - next;
+    targetLabel.textContent = TARGET;
+    hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
+    undoBtn.disabled = !undoState;
   }
 
-  // ===== 入力：列タップでドロップ =====
-  function canvasColFromEvent(e){
+  // ===== inputs =====
+  function colFromEvent(e){
     const rect = cv.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const x = (clientX - rect.left) * (cv.width/rect.width);
-    const col = Math.max(0, Math.min(COLS-1, Math.floor((x-PAD)/CELL)));
-    return col;
+    const col = Math.floor((x - PADX)/CELL);
+    return Math.max(0, Math.min(COLS-1, col));
   }
 
-  cv.addEventListener('touchstart', e=>{
-    e.preventDefault();
-    dropAt(canvasColFromEvent(e));
-  }, {passive:false});
-  cv.addEventListener('mousedown', e=>{
-    dropAt(canvasColFromEvent(e));
-  });
-
-  resetBtn.addEventListener('click', init);
-  hintBtn.addEventListener('click', ()=>{ showHint = !showHint; updateHUD(); draw(); });
-  helpBtn.addEventListener('click', ()=> helpModal.style.display='flex');
-  closeHelp.addEventListener('click', ()=> helpModal.style.display='none');
-
-  // ===== ドロップ処理 =====
-  function dropAt(col){
-    if (over) return;
-    // 空き行を探す（下から）
+  function findLandingRow(col){
     let r = ROWS-1;
     while(r>=0 && grid[r][col]!==null) r--;
-    if (r<0){
-      toast('その列はいっぱい！'); return;
-    }
+    return r; // -1なら満杯
+  }
+
+  function willImmediateMatch(col, row, val){
+    // 置いた直後に隣接ペアが出来るか（右/左/下）
+    const need = TARGET - val;
+    // 左右
+    if (col-1>=0 && grid[row]?.[col-1]===need) return true;
+    if (col+1<COLS && grid[row]?.[col+1]===need) return true;
+    // 下
+    if (row+1<ROWS && grid[row+1]?.[col]===need) return true;
+    return false;
+  }
+
+  function setHover(col){
+    hoverCol = col;
+    const row = findLandingRow(col);
+    previewHit = (row>=0) && willImmediateMatch(col,row,next);
+    draw();
+  }
+
+  cv.addEventListener('mousemove', e=> setHover(colFromEvent(e)));
+  cv.addEventListener('touchmove', e=> { setHover(colFromEvent(e)); e.preventDefault(); }, {passive:false});
+  cv.addEventListener('mouseleave', ()=>{ hoverCol=null; draw(); });
+
+  cv.addEventListener('mousedown', e=> dropAt(colFromEvent(e)));
+  cv.addEventListener('touchstart', e=> { dropAt(colFromEvent(e)); e.preventDefault(); }, {passive:false});
+
+  resetBtn.addEventListener('click', ()=>{ init(); draw(); });
+  hintBtn.addEventListener('click', ()=>{ showHint=!showHint; updateHUD(); draw(); });
+  undoBtn.addEventListener('click', doUndo);
+
+  settingsBtn.addEventListener('click', ()=> { renderSettings(); settingsModal.style.display='flex'; });
+  closeSettings.addEventListener('click', ()=> settingsModal.style.display='none');
+  applySettings.addEventListener('click', ()=>{
+    localStorage.setItem('tendrop_target', TARGET);
+    localStorage.setItem('tendrop_cols', COLS);
+    localStorage.setItem('tendrop_rows', ROWS);
+    settingsModal.style.display='none';
+    init(); fit(); toast('設定を適用しました');
+  });
+
+  const targetOptions = [10,12,15,20];
+  const sizeOptions = [{c:6,r:10,label:'6 × 10'},{c:6,r:12,label:'6 × 12'},{c:7,r:12,label:'7 × 12'}];
+
+  function renderSettings(){
+    targetRow.innerHTML='';
+    targetOptions.forEach(t=>{
+      const b=document.createElement('button');
+      b.className='pill'+(t===TARGET?' active':'');
+      b.textContent=t;
+      b.onclick=()=>{ TARGET=t; renderSettings(); updateHUD(); };
+      targetRow.appendChild(b);
+    });
+    sizeRow.innerHTML='';
+    sizeOptions.forEach(s=>{
+      const b=document.createElement('button');
+      b.className='pill'+(s.c===COLS && s.r===ROWS ? ' active':'');
+      b.textContent=s.label;
+      b.onclick=()=>{ COLS=s.c; ROWS=s.r; CELL = Math.floor((cv.width-PADX*2)/COLS); renderSettings(); };
+      sizeRow.appendChild(b);
+    });
+  }
+
+  // ===== game core =====
+  function snapshot(){
+    return {
+      grid: grid.map(col=>col.slice()),
+      score, next
+    };
+  }
+  function restore(state){
+    grid = state.grid.map(col=>col.slice());
+    score = state.score;
+    next = state.next;
+    over = false;
+    updateHUD(); draw();
+  }
+  function doUndo(){
+    if (!undoState) return;
+    restore(undoState);
+    undoState = null;
+    updateHUD();
+    toast('1手戻しました');
+  }
+
+  function dropAt(col){
+    if (over) return;
+    const r = findLandingRow(col);
+    if (r<0){ toast('その列はいっぱい'); return; }
+
+    // スナップショット（1手アンドゥ）
+    undoState = snapshot();
+
     grid[r][col] = next;
     score += next * 2;
     next = randNext();
     updateHUD();
-    settle(); // 連鎖処理
+    settle();
   }
 
-  // ===== 連鎖：ペアで10になれば消す（速度条件なし・シンプル） =====
   function settle(){
-    let combo = 0;
+    let combo=0;
     while(true){
-      const toClear = new Set(); // "r,c" 形式
-
-      // 4近傍で10になるペアを全部マーキング
-      for(let r=0;r<ROWS;r++){
-        for(let c=0;c<COLS;c++){
+      const toClear = new Set();
+      for (let r=0;r<ROWS;r++){
+        for (let c=0;c<COLS;c++){
           const v = grid[r][c];
           if (v===null) continue;
-          const need = 10 - v;
-          // 右
+          const need = TARGET - v;
           if (c+1<COLS && grid[r][c+1]===need){ toClear.add(r+','+c); toClear.add(r+','+(c+1)); }
-          // 左
-          if (c-1>=0   && grid[r][c-1]===need){ toClear.add(r+','+c); toClear.add(r+','+(c-1)); }
-          // 下
           if (r+1<ROWS && grid[r+1][c]===need){ toClear.add(r+','+c); toClear.add((r+1)+','+c); }
-          // 上
-          if (r-1>=0   && grid[r-1][c]===need){ toClear.add(r+','+c); toClear.add((r-1)+','+c); }
         }
       }
-
-      if (!toClear.size) break; // 連鎖終了
+      if (!toClear.size) break;
 
       combo++;
-      // 消去＆スコア
-      let cleared = 0;
-      for(const key of toClear){
+      let cleared=0;
+      for (const key of toClear){
         const [rr,cc] = key.split(',').map(Number);
-        if (grid[rr][cc]!==null){ cleared++; grid[rr][cc]=null; }
+        if (grid[rr][cc]!==null){ grid[rr][cc]=null; cleared++; }
       }
-      // 連鎖ボーナス（1連鎖=1.0倍, 2連鎖=1.2倍, 3連鎖=1.4倍…）
-      score += Math.floor(cleared * 10 * (1 + (combo-1)*0.2));
+      score += Math.floor(cleared * 6 * (1 + (combo-1)*0.25) * (TARGET/10));
 
-      // 重力（列ごとに上から詰める）
-      for(let c=0;c<COLS;c++){
-        let write = ROWS-1;
-        for(let r=ROWS-1;r>=0;r--){
-          if (grid[r][c]!==null){
-            const v = grid[r][c];
-            grid[r][c]=null;
-            grid[write][c]=v;
+      // gravity
+      for (let c=0;c<COLS;c++){
+        let write=ROWS-1;
+        for (let r=ROWS-1;r>=0;r--){
+          const v=grid[r][c];
+          if (v!==null){
+            if (write!==r){ grid[write][c]=v; grid[r][c]=null; }
             write--;
           }
         }
       }
     }
-    // ゲームオーバー（最上段にブロックが存在し、かつ危険ラインを超える可視領域にある）
-    for (let c=0;c<COLS;c++){
-      if (grid[0][c]!==null){ over = true; break; }
-    }
-    if (over) toast('ゲームオーバー！ リセットで再挑戦');
+
+    // top filled?
+    over = grid[0].some(v=>v!==null);
+    if (over) toast('ゲームオーバー！ リセットか元に戻す');
     updateHUD(); draw();
   }
 
-  // ===== 描画 =====
+  // ===== draw =====
   function draw(){
     ctx.clearRect(0,0,cv.width,cv.height);
 
-    // 枠
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,cv.width,cv.height);
-    ctx.strokeStyle = getCss('--line'); ctx.lineWidth = 2;
-    roundRect(ctx, PAD-8, TOP-8, CELL*COLS+16, (ROWS*CELL)+16, 14); ctx.stroke();
+    // frame
+    roundedStroke(PADX-8, PADY-8, CELL*COLS+16, CELL*ROWS+16, 14, CSS('--line'), 2);
 
-    // 危険表示（内部ガイド）
-    ctx.strokeStyle = 'rgba(255,90,90,.35)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(PAD, CEIL_Y); ctx.lineTo(PAD + CELL*COLS, CEIL_Y); ctx.stroke();
+    // column hover highlight
+    if (hoverCol!==null){
+      const x = PADX + hoverCol*CELL;
+      ctx.fillStyle = previewHit ? 'rgba(18,184,134,.12)' : 'rgba(0,0,0,.06)';
+      ctx.fillRect(x, PADY, CELL, CELL*ROWS);
 
-    // グリッド背景
-    ctx.fillStyle = 'rgba(0,0,0,.02)';
-    for(let r=0;r<ROWS;r++){
-      for(let c=0;c<COLS;c++){
-        const x = PAD + c*CELL, y = TOP + r*CELL;
-        ctx.fillRect(x+1,y+1, CELL-2, CELL-2);
+      // ghost piece at landing row
+      const row = findLandingRow(hoverCol);
+      if (row>=0){
+        ghostBall(hoverCol, row, next, previewHit);
+      } else {
+        // full mark
+        ctx.fillStyle='rgba(226,78,82,.20)';
+        ctx.fillRect(x, PADY, CELL, CELL*ROWS);
+        ctx.fillStyle='#E24E52';
+        ctx.font='bold '+Math.floor(CELL*0.6)+'px system-ui';
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('×', x+CELL/2, PADY+CELL);
       }
     }
 
-    // 数字玉
-    for(let r=0;r<ROWS;r++){
-      for(let c=0;c<COLS;c++){
+    // subtle grid
+    ctx.fillStyle = 'rgba(0,0,0,.02)';
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const x = PADX + c*CELL, y = PADY + r*CELL;
+        ctx.fillRect(x+1, y+1, CELL-2, CELL-2);
+      }
+    }
+
+    // numbers
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
         const v = grid[r][c];
         if (v===null) continue;
-        drawBall(c, r, v);
+        ball(c,r,v);
       }
     }
 
-    // ヒント（10まであといくつ）
-    if (showHint){
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#000';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = Math.floor(CELL*0.32)+'px system-ui, -apple-system, sans-serif';
-      for(let r=0;r<ROWS;r++){
-        for(let c=0;c<COLS;c++){
-          const x = PAD + c*CELL + CELL/2;
-          const y = TOP + r*CELL + CELL/2;
-          const v = grid[r][c];
-          const t = v===null? '' : (10 - v);
-          if (t!=='') ctx.fillText(t, x, y);
-        }
-      }
-      ctx.globalAlpha = 1;
+    // game over veil
+    if (over){
+      ctx.fillStyle='rgba(0,0,0,.48)';
+      ctx.fillRect(0,0,cv.width,cv.height);
+      ctx.fillStyle='#fff';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='bold 28px system-ui';
+      ctx.fillText('GAME OVER', cv.width/2, cv.height*0.45);
+      ctx.font='16px system-ui';
+      ctx.fillText('「元に戻す」または「リセット」', cv.width/2, cv.height*0.58);
     }
   }
 
-  function drawBall(c, r, v){
-    const x = PAD + c*CELL + CELL/2;
-    const y = TOP + r*CELL + CELL/2;
+  function ball(c,r,v){
+    const x = PADX + c*CELL + CELL/2;
+    const y = PADY + r*CELL + CELL/2;
     const rad = Math.floor(CELL*0.42);
+    const g = ctx.createRadialGradient(x-rad*0.45,y-rad*0.45,rad*0.25, x,y,rad);
+    g.addColorStop(0,'#fff'); g.addColorStop(1, COLORS[v]||'#ddd');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#1b1b1b'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold '+Math.floor(CELL*0.50)+'px system-ui';
+    ctx.fillText(v, x, y+1);
 
-    // 本体
-    const col = getCss('--c'+v);
-    const g = ctx.createRadialGradient(x-rad*0.45,y-rad*0.45, rad*0.3, x,y,rad);
-    g.addColorStop(0, '#fff'); g.addColorStop(1, col);
-    ctx.fillStyle = g;
+    if (showHint){
+      ctx.fillStyle='rgba(0,0,0,.35)';
+      ctx.font=Math.floor(CELL*0.28)+'px system-ui';
+      ctx.fillText(TARGET - v, x, y - Math.floor(rad*0.95));
+    }
+  }
+
+  function ghostBall(c,r,v,good){
+    const x = PADX + c*CELL + CELL/2;
+    const y = PADY + r*CELL + CELL/2;
+    const rad = Math.floor(CELL*0.42);
+    ctx.globalAlpha = .35;
+    ctx.fillStyle = good ? CSS('--ok') : '#999';
     ctx.beginPath(); ctx.arc(x,y,rad,0,Math.PI*2); ctx.fill();
-
-    // ふち
-    ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 2; ctx.stroke();
-
-    // 数字
-    ctx.fillStyle = '#1f2937';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font = 'bold '+Math.floor(CELL*0.48)+'px system-ui';
+    ctx.globalAlpha = 1;
+    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='bold '+Math.floor(CELL*0.50)+'px system-ui';
     ctx.fillText(v, x, y+1);
   }
 
-  function roundRect(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y);
-    c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r);
-    c.arcTo(x,y,x+w,y,r); c.closePath(); }
-
-  function getCss(varName){
-    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  function roundedStroke(x,y,w,h,r,col,lw){
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r);
+    ctx.arcTo(x,y,x+w,y,r);
+    ctx.closePath();
+    ctx.lineWidth=lw||1; ctx.strokeStyle=col||'#000'; ctx.stroke();
+    ctx.restore();
   }
 
-  // ===== ユーティリティ =====
+  // ===== toast =====
   function toast(msg){
-    toastEl.textContent = msg;
+    toastEl.textContent=msg;
     toastEl.classList.add('show');
-    setTimeout(()=>toastEl.classList.remove('show'), 1500);
+    setTimeout(()=>toastEl.classList.remove('show'),1300);
   }
 
-  // スタート
-  init();
+  // boot
+  init(); fit();
 })();
 </script>
 
-<!-- ===== Service Worker（動的生成：オフラインOK） ===== -->
+<!-- Service Worker（動的生成：オフライン可） -->
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='tendrop-onefile-v1';
+    const CACHE='tendrop-v5';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
@@ -384,7 +507,7 @@ if ('serviceWorker' in navigator) {
   `;
   const blob = new Blob([code], {type:'application/javascript'});
   const url = URL.createObjectURL(blob);
-  addEventListener('load', ()=> navigator.serviceWorker.register(url));
+  addEventListener('load', () => navigator.serviceWorker.register(url));
 }
 </script>
 </body>
