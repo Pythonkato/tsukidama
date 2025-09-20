@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares + Belts) v4.2 + Baseball</title>
+<title>10 Baseball — DecaMerge Kids</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,8 +12,8 @@
 <!-- Manifest (inline) -->
 <script type="application/manifest+json">
 {
-  "name": "10 Game — DecaMerge (Squares + Belts) + Baseball",
-  "short_name": "10 Game",
+  "name": "10 Baseball — DecaMerge Kids",
+  "short_name": "10 Baseball",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#F4F1EA",
@@ -27,11 +27,10 @@
 <style>
   :root{
     --bg:#F4F1EA; --paper:#FFFFFF; --ink:#131313; --muted:#6D7280; --line:#E5DED2; --chip:#FBF8F2;
-    --accent:#1554F6;
+    --accent:#1554F6; --good:#11a36f; --warn:#e24e52;
     --n1:#EB6A5E; --n2:#EE8E5E; --n3:#F0C95E; --n4:#79C5AE; --n5:#A7D5FF;
     --n6:#7CB0F2; --n7:#B6A2E7; --n8:#F28BC4; --n9:#D3A760;
     --b10:#3AB272; --b20:#2A8FBD; --b40:#7A66D9; --b80:#E05C80; --b160:#D48B26; --b320:#3B78D8; --b640:#2F9F66;
-    --belt:#EAE5DA;
   }
   *{box-sizing:border-box}
   html,body{
@@ -70,17 +69,28 @@
   #help ol{padding-left:1.1em;line-height:1.6}
   #help li{margin:.35em 0}
   #help .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+
+  /* ★ 右側のフローティング・スイングボタン */
+  #swingBtn{
+    position:fixed; right:14px; top:50%; transform:translateY(-50%);
+    z-index:9999; width:72px; height:72px; border-radius:999px;
+    background:#111; color:#fff; border:none; box-shadow:0 6px 20px rgba(0,0,0,.18);
+    font-weight:900; letter-spacing:.06em; font-size:14px;
+  }
+  #swingBtn:active{transform:translateY(-50%) scale(.98)}
+  #swingBtn small{display:block; font-weight:700; opacity:.8; font-size:10px}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header>
     <div class="brand">
-      <div class="ttl">10 Game</div>
-      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア）+ Baseball</div>
+      <div class="ttl">10 Baseball</div>
+      <div class="sub">足して10でパワーアップ！ 合体で点を取ろう</div>
     </div>
     <div class="chips">
-      <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
+      <div class="chip">GameScore: <b id="score">0</b> / Best: <b id="best">0</b></div>
+      <div class="chip">Inning: <b id="inning">1</b> / Outs: <b id="outs">0</b> / Runs: <b id="runs">0</b></div>
       <div class="nextBadge">
         Next
         <div class="nextSquare" id="nextA">-</div>
@@ -89,33 +99,36 @@
       <button class="btn ghost" id="helpBtn" aria-haspopup="dialog" aria-controls="help">遊び方</button>
       <button class="btn ghost" id="hintBtn">ヒント ON</button>
       <button class="btn ghost" id="undoBtn" disabled>元に戻す</button>
-      <button class="btn ghost" id="swingBtn" aria-label="スイング">スイング</button>
       <button class="btn strong" id="resetBtn">リセット</button>
     </div>
   </header>
 
   <div id="stage">
-    <canvas id="cv" width="360" height="640" aria-label="10 Game canvas"></canvas>
+    <canvas id="cv" width="360" height="640" aria-label="10 Baseball canvas"></canvas>
   </div>
 
   <footer>
-    指で<strong>左右にスライド</strong>し、<strong>指を離す</strong>と<strong>投げる</strong>（フリックで初速）。<br>
-    <b>Space</b>または<b>スイング</b>で下部の<b>バット</b>が弧を描き、当たったタイルを弾きます。<br>
-    <b>1〜9</b>は<strong>合計=10</strong>で<strong>即合体</strong>（2〜6個／複数同時）。<b>同じ大タイル</b>は<b>倍々合体</b>！
+    ボールは<b>ピッチャー</b>から<b>自動</b>で飛んできます（1.2〜1.8秒間隔）。<br>
+    <b>スイング</b>（右の丸ボタン or <b>Space</b>）で<b>中央のホームベース</b>付近を打てます。<br>
+    <b>1〜9のボール</b>は<b>合計=10</b>のグループで<b>即「10」</b>に合体（2〜6個）。<b>10,20,40…</b>は<b>同値合体</b>で<b>倍々</b>！<br>
+    打球の勢いと角度で<b>ピッチャゴロ/ヒット/2ベース/HR</b>判定。スイング後<b>2秒以内に「10」誕生</b>で<b>学習ボーナス得点</b>！
   </footer>
 </div>
+
+<!-- 右側フローティング・スイングボタン -->
+<button id="swingBtn" aria-label="スイング">スイング<br><small>Space</small></button>
 
 <!-- How-to -->
 <div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
-    <h3>🎮 遊び方（Squares + Belts + Baseball）</h3>
+    <h3>🎮 遊び方（10 Baseball）</h3>
     <ol>
-      <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせ、<strong>指を離す</strong>と<strong>投げる</strong>（横フリックで初速）。</li>
-      <li><strong>1〜9</strong>が<strong>隣り合うグループ</strong>で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
-      <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が<strong>接触 or 重なり</strong>で<strong>倍々合体</strong>。</li>
-      <li>盤面には<strong>コンベア帯</strong>（右向き矢印＝右へ、左向き矢印＝左へ）と弱い<strong>そよ風</strong>があります。</li>
-      <li><b>スイング</b>（ボタン or <b>Space</b>）で下部に現れる<b>バット</b>が弧を描き、触れたタイルを弾きます。</li>
-      <li>赤線より上に一定時間あると<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
+      <li>ボール（<b>1〜9</b>の<b>丸</b>）が<b>ピッチャー</b>から<b>自動で飛んでき</b>ます。</li>
+      <li><b>スイング</b>（右ボタン or <b>Space</b>）で<b>中央固定</b>のバットが弧を描きます。</li>
+      <li><b>足し算ミッション：</b>合計が<b>10</b>になる近いボール同士は<b>即合体</b>して<b>10</b>になります。</li>
+      <li><b>10,20,40…</b>は<b>同じ数字</b>で触れると<b>倍々合体</b>。</li>
+      <li>打球の勢いと角度で<b>ピッチャゴロ/ヒット/ツーベース/ホームラン</b>判定。<b>スイング後2秒以内</b>に<b>10</b>が生まれると<b>学習ボーナス</b>！</li>
+      <li>3アウトで回が変わります。点（Runs）をたくさん取ろう！</li>
     </ol>
     <div class="actions">
       <button class="btn ghost" id="closeHelp">閉じる</button>
@@ -143,7 +156,11 @@
   const helpModal = document.getElementById('help');
   const closeHelp = document.getElementById('closeHelp');
   const okHelp = document.getElementById('okHelp');
-  const swingBtn = document.getElementById('swingBtn'); // ★ BASEBALL
+  const swingBtn = document.getElementById('swingBtn'); // ★ フローティング
+
+  const inningEl = document.getElementById('inning');
+  const outsEl   = document.getElementById('outs');
+  const runsEl   = document.getElementById('runs');
 
   // ===== layout fit =====
   function fit(){
@@ -159,7 +176,7 @@
   const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80; // 赤線
   const BOARD_TOP = 6, BOARD_LEFT = LEFT, BOARD_RIGHT = RIGHT, BOARD_BOTTOM = FLOOR;
 
-  const DT = 1/60, SUBSTEPS = 3, ITER = 3;
+  const DT = 1/60, SUBSTEPS = 3;
   const G = 1850;
   const AIR_FRICTION = 0.975;
   const REST_FLOOR = 0.08;
@@ -177,18 +194,63 @@
   ];
   const BREEZE = { amp: 110, speed: 0.7 };
 
+  // ===== baseball state =====
+  let inning=1, outs=0, runs=0;
+  let bases = { first:false, second:false, third:false };
+
+  function resetBases(){ bases.first=bases.second=bases.third=false; }
+  function applyPlay(kind){
+    // kind: 'grounder' | 'single' | 'double' | 'homerun'
+    if (kind==='grounder'){
+      outs++;
+      toast('ピッチャゴロ！　アウト');
+      if (outs>=3){
+        outs=0; inning++; resetBases();
+        toast('3アウト交代！ Inning '+inning);
+      }
+    }else if (kind==='single'){
+      // 三->得点, 二->三, 一->二, 打者->一
+      if (bases.third) { runs++; bases.third=false; }
+      if (bases.second){ bases.third=true; bases.second=false; }
+      if (bases.first){ bases.second=true; bases.first=false; }
+      bases.first=true;
+      toast('ヒット！ 一塁打');
+    }else if (kind==='double'){
+      // 三/二 -> 得点, 一->三, 打者->二
+      if (bases.third){ runs++; bases.third=false; }
+      if (bases.second){ runs++; bases.second=false; }
+      if (bases.first){ bases.third=true; bases.first=false; }
+      bases.second=true;
+      toast('ツーベースヒット！');
+    }else if (kind==='homerun'){
+      let add = 1 + (bases.first?1:0) + (bases.second?1:0) + (bases.third?1:0);
+      runs += add;
+      resetBases();
+      toast('ホームラン！ +'+add+'点');
+    }
+    updateHUD();
+  }
+
   // ===== game state =====
   /** @type {{x:number,y:number,vx:number,vy:number,h:number,val:number,id:number,m:number,born:number,rot:number}[]} */
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
-  let aimX = (LEFT+RIGHT)/2;
+  let aimX = (LEFT+RIGHT)/2; // 使わないがゴーストに転用
   let nextQ = [randSmall(), randSmall()];
   let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
 
-  // gesture / modal
-  let helpOpen = false, dragging = false, activePointer=null;
+  // 自動ピッチ
+  let autoPitchTimer = 1.0;
+  const AUTO_MIN=1.2, AUTO_MAX=1.8;
+
+  // スイング→学習ボーナスの猶予
+  let swingBonusWindowEnd = 0;
+  let bonusGivenThisSwing = false;
+
+  // ジェスチャ（今回は使わないが互換で残す）
+  let helpOpen = false;
 
   // undo
   let undoState = null;
@@ -228,73 +290,28 @@
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42')||0;
+    const best = +(localStorage.getItem('decamerge_best_baseball_kids')||0);
+    if (score>best) localStorage.setItem('decamerge_best_baseball_kids', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_baseball_kids')||0;
     nextAEl.textContent = nextQ[0];
     nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
     undoBtn.disabled = !undoState;
+
+    inningEl.textContent = inning;
+    outsEl.textContent   = outs;
+    runsEl.textContent   = runs;
   }
 
   // ===== modal open/close =====
-  function resetPointerState(){
-    try { if (activePointer!==null) cv.releasePointerCapture(activePointer); } catch(e){}
-    dragging=false; activePointer=null;
-  }
-  function openHelp(){ helpOpen=true; helpModal.setAttribute('open',''); resetPointerState(); }
-  function closeHelpModal(){ helpOpen=false; helpModal.removeAttribute('open'); resetPointerState(); }
+  function openHelp(){ helpOpen=true; helpModal.setAttribute('open',''); }
+  function closeHelpModal(){ helpOpen=false; helpModal.removeAttribute('open'); }
   helpBtn.addEventListener('click', openHelp);
   closeHelp.addEventListener('click', closeHelpModal);
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42','1'); }
-
-  // ===== pointer inputs =====
-  function canvasX(e){
-    const rect = cv.getBoundingClientRect();
-    const clientX = e.clientX ?? (e.touches && e.touches[0]?.clientX) ?? rect.left;
-    return (clientX - rect.left) * (cv.width/rect.width);
-  }
-
-  // ====== 追加：投球のためのジェスチャ記録 ======  // ★ BASEBALL: throw input
-  let gestureTrail = []; // {t,x} を貯める（直近 ~120ms）
-  const TRAIL_WINDOW = 0.12; // 秒
-  function recordGestureSample(e){
-    const now = performance.now()/1000;
-    const x = canvasX(e);
-    gestureTrail.push({t: now, x});
-    // 古いサンプルを捨てる
-    gestureTrail = gestureTrail.filter(s => now - s.t <= TRAIL_WINDOW);
-  }
-
-  function onPointerDown(e){
-    if (helpOpen) return;
-    if (activePointer !== null) return;
-    cv.setPointerCapture(e.pointerId);
-    activePointer = e.pointerId;
-    dragging = true;
-    aimX = clamp(canvasX(e), LEFT, RIGHT);
-    gestureTrail.length = 0;            // ★ BASEBALL: トレイル初期化
-    recordGestureSample(e);
-  }
-  function onPointerMove(e){
-    if (!dragging || e.pointerId !== activePointer) return;
-    aimX = clamp(canvasX(e), LEFT, RIGHT);
-    recordGestureSample(e); // ★ BASEBALL: フリック記録
-  }
-  function onPointerUp(e){
-    if (e.pointerId !== activePointer) return;
-    if (!helpOpen) drop(); // 指を離したら投げる
-    resetPointerState();
-  }
-  if (window.PointerEvent){
-    cv.addEventListener('pointerdown', onPointerDown, {passive:false});
-    cv.addEventListener('pointermove', onPointerMove, {passive:false});
-    cv.addEventListener('pointerup',   onPointerUp,   {passive:false});
-    cv.addEventListener('pointercancel', ()=> resetPointerState(), {passive:true});
-  }
+  if (!localStorage.getItem('seen_help_baseball_kids')) { openHelp(); localStorage.setItem('seen_help_baseball_kids','1'); }
 
   resetBtn.addEventListener('click', reset);
   hintBtn.addEventListener('click', ()=>{ showHint = !showHint; updateHUD(); });
@@ -304,35 +321,49 @@
   function reset(){
     tiles = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0; gameTime=0;
     aimX=(LEFT+RIGHT)/2; nextQ=[randSmall(), randSmall()]; undoState=null;
+    inning=1; outs=0; runs=0; resetBases();
+    autoPitchTimer = 1.0;
+    swingBonusWindowEnd = 0; bonusGivenThisSwing = false;
     updateHUD();
   }
   function snapshot(){
     return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born,rot:t.rot})),
              rings: rings.map(r=>({...r})),
-             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
+             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime,
+             inning, outs, runs, bases:{...bases}, autoPitchTimer, swingBonusWindowEnd, bonusGivenThisSwing
+           };
   }
   function restore(s){
     tiles = s.tiles.map(t=>({...t})); rings = s.rings.map(r=>({...r}));
     score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
-    gameTime=s.gameTime; updateHUD();
+    gameTime=s.gameTime;
+    inning=s.inning; outs=s.outs; runs=s.runs; bases={...s.bases};
+    autoPitchTimer=s.autoPitchTimer; swingBonusWindowEnd=s.swingBonusWindowEnd; bonusGivenThisSwing=s.bonusGivenThisSwing;
+    updateHUD();
   }
   function undo(){ if (!undoState) return; restore(undoState); undoState=null; toast('1手戻しました'); }
 
-  // ====== BASEBALL: バット設定 ======
+  // ====== 中央固定バット ======
   const BAT = {
-    cx: (LEFT+RIGHT)/2, // 回転中心（中央）
-    cy: FLOOR - 84,     // 高さ
-    r: 18,              // 当たり判定半径（円）
-    arc: { start:-0.65, end:0.35 }, // 弧（ラジアン）
-    swingT: 0,          // 0→DUR で進行
-    DUR: 0.16,          // スイング時間（秒）
-    COOLDOWN: 0.22,     // クールダウン
+    cx: (LEFT+RIGHT)/2,
+    cy: FLOOR - 84,
+    r: 18,
+    arc: { start:-0.65, end:0.35 },
+    swingT: 0,
+    DUR: 0.16,
+    COOLDOWN: 0.22,
     cd: 0,
+    swinging: false,
+    didClassifyThisSwing: false,
   };
   function swing(){
     if (BAT.cd>0 || over) return;
     BAT.swingT = BAT.DUR;
     BAT.cd = BAT.COOLDOWN;
+    BAT.swinging = true;
+    BAT.didClassifyThisSwing = false;
+    swingBonusWindowEnd = gameTime + 2.0;
+    bonusGivenThisSwing = false;
     toast('スイング！');
   }
   swingBtn.addEventListener('click', swing);
@@ -344,74 +375,31 @@
     const tt = t<0?0:t>1?1:t;
     const k = 1 - Math.pow(1-tt, 2); // ease-out
     const ang = BAT.arc.start + (BAT.arc.end - BAT.arc.start)*k;
-    const len = 70; // グリップ中心からバットヘッドまでの距離
+    const len = 70;
     const x = BAT.cx + Math.cos(ang)*len;
     const y = BAT.cy + Math.sin(ang)*len;
     return {x,y};
   }
 
-  function tryBatHits(){
-    if (BAT.swingT<=0) return;
-    const pos = currentBatPos();
-    for (const t of tiles){
-      // 円 x 正方形 簡易当たり判定
-      const clx = clamp(pos.x, t.x - t.h, t.x + t.h);
-      const cly = clamp(pos.y, t.y - t.h, t.y + t.h);
-      const dx = pos.x - clx, dy = pos.y - cly;
-      if (dx*dx + dy*dy <= BAT.r*BAT.r){
-        // 反発方向：バット→タイルの反対（押し出し）
-        let nx = (t.x - pos.x), ny = (t.y - pos.y);
-        const nlen = Math.hypot(nx, ny) || 1;
-        nx /= nlen; ny /= nlen;
-
-        // インパルス：重いほど効きにくく（mをsqrtで）
-        const base = 520;
-        const massBias = 1 / Math.sqrt(Math.max(t.m, 1600)) / 0.025;
-        const J = base * massBias;
-
-        t.vx += nx * J;
-        t.vy += ny * J * 0.9;
-
-        // 視覚フィードバック & スコア
-        rings.push({x:t.x, y:t.y, t:0, col:'#FF7F50'});
-        score += 5 + Math.min(20, Math.floor((Math.abs(t.vx)+Math.abs(t.vy))/60));
-        updateHUD();
-      }
-    }
-  }
-
-  // ===== 投球（フリック初速） =====
-  function drop(){
+  // ===== 自動ピッチ（投球） =====
+  function autoPitch(){
     if (over || cooldown>0) return;
-    if (tiles.length>=MAX_TILES){ toast('いっぱいです。合体で減らそう！'); return; }
+    if (tiles.length>=MAX_TILES){ return; }
     undoState = snapshot();
 
     const val = nextQ.shift(); nextQ.push(randSmall());
     const h = halfFor(val);
-    const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
-
-    // 直近トレイルから vx を推定（px/s）
-    const now = performance.now()/1000;
-    const recent = gestureTrail.filter(s=> now - s.t <= TRAIL_WINDOW);
-    let vx0 = 0;
-    if (recent.length>=2){
-      const a = recent[0], b = recent[recent.length-1];
-      const dt = Math.max(0.016, b.t - a.t);
-      vx0 = ( (b.x - a.x) / dt ); // px/s
-    }
-    vx0 *= 1.2; // 少し増幅
-    vx0 = clamp(vx0, -600, 600);
-
-    // 縦方向は基本“下”に投げる
-    let vy0 = 520;
-
-    tiles.push({x, y: CEIL-30, vx:vx0, vy:vy0, h, val, id:idSeq++, m:massFor(h), born:gameTime, rot:0});
-    score += val; cooldown = .18; updateHUD();
+    const x = (LEFT+RIGHT)/2 + (Math.random()*60-30); // ほぼ中央
+    const y = CEIL - 28;
+    const vx0 = (Math.random()*160-80);               // 少し左右
+    const vy0 = 620 + Math.random()*120;              // 速球
+    tiles.push({x:clamp(x, LEFT+h+1, RIGHT-h-1), y, vx:vx0, vy:vy0, h, val, id:idSeq++, m:massFor(h), born:gameTime, rot:0});
+    score += val; cooldown = .05; updateHUD();
   }
 
-  // ===== physics helpers =====
+  // ===== 物理補助 =====
   const CONTACT_TOL_SMALL = 7;
-  const BIG_MERGE_TOL     = 3;   // ★上下/左右の“接触”も合体OK（≤3pxギャップ）
+  const BIG_MERGE_TOL     = 3;
 
   function keepInside(t){
     const BOUND_SLOP = 0.5;
@@ -463,12 +451,67 @@
   }
   function relaxWorld(n=4){ for(let i=0;i<n;i++) resolvePairs(); }
 
-  // ===== merging rules =====
+  // ===== 当たり判定（バット）と打球判定 =====
+  function classifyPlayFrom(vx, vy){
+    const V = Math.hypot(vx, vy);
+    const angleRad = Math.atan2(-vy, vx); // 上向きが正
+    const deg = angleRad * 180/Math.PI;
+
+    // しきい値：低速→ゴロ／中速低角→単打／中〜高速中角→二塁打／高速高角→HR
+    if (V >= 1100 && deg >= 35) return 'homerun';
+    if (V >= 800  && deg >= 15) return 'double';
+    if (V >= 500  && deg >= -5) return 'single';
+    return 'grounder';
+  }
+
+  function tryBatHits(){
+    if (BAT.swingT<=0) return;
+    const pos = currentBatPos();
+    let hitOccurred = false;
+
+    for (const t of tiles){
+      // 円 x 正方形
+      const clx = clamp(pos.x, t.x - t.h, t.x + t.h);
+      const cly = clamp(pos.y, t.y - t.h, t.y + t.h);
+      const dx = pos.x - clx, dy = pos.y - cly;
+      if (dx*dx + dy*dy <= BAT.r*BAT.r){
+        // 法線方向へ押し出す
+        let nx = (t.x - pos.x), ny = (t.y - pos.y);
+        const nlen = Math.hypot(nx, ny) || 1;
+        nx /= nlen; ny /= nlen;
+
+        const base = 560;
+        const massBias = 1 / Math.sqrt(Math.max(t.m, 1600)) / 0.025;
+        const J = base * massBias;
+
+        t.vx += nx * J;
+        t.vy += ny * J * 0.9;
+
+        rings.push({x:t.x, y:t.y, t:0, col:'#FF7F50'});
+        score += 5 + Math.min(20, Math.floor((Math.abs(t.vx)+Math.abs(t.vy))/60));
+        updateHUD();
+
+        // 最初のヒットで打球種別を確定
+        if (!BAT.didClassifyThisSwing){
+          const kind = classifyPlayFrom(t.vx, t.vy);
+          applyPlay(kind);
+          BAT.didClassifyThisSwing = true;
+        }
+        hitOccurred = true;
+      }
+    }
+
+    if (hitOccurred) {
+      // 連打し過ぎ防止（実質1回の判定になる）
+      BAT.swingT = Math.max(0, BAT.swingT - 0.04);
+    }
+  }
+
+  // ===== 合体（足して10 / 同値倍々） =====
   function touchingSmall(a,b){
     const dx=Math.abs(b.x-a.x), dy=Math.abs(b.y-a.y);
     return dx <= (a.h + b.h + CONTACT_TOL_SMALL) && dy <= (a.h + b.h + CONTACT_TOL_SMALL);
   }
-  // ★大タイル：重なり もしくは “片軸が重なり & もう片軸は≤3pxのギャップ” で合体OK
   function contactBig(a,b){
     const overlapX = (a.h+b.h) - Math.abs(b.x-a.x);
     const overlapY = (a.h+b.h) - Math.abs(b.y-a.y);
@@ -479,8 +522,9 @@
 
   function tryMerges(){
     let changed=false;
+    let tenMadeThisTick = 0;
 
-    // 大タイル：同値→倍々
+    // 大タイル
     const removedBig = new Set();
     for (let i=0;i<tiles.length;i++){
       const A=tiles[i]; if (A.val<10 || removedBig.has(A.id)) continue;
@@ -499,7 +543,7 @@
     }
     if (removedBig.size){ tiles = tiles.filter(t=>!removedBig.has(t.id)); updateHUD(); }
 
-    // 小タイル：合計=10（2〜6個、同フレーム複数）
+    // 小タイル：合計=10
     const small = tiles.filter(t=>t.val<10);
     if (small.length){
       const adj = small.map(()=>[]);
@@ -512,42 +556,37 @@
 
       for (let s=0;s<small.length;s++){
         if (visited[s]) continue;
-        // 成分抽出
+        // 成分
         const comp=[]; const q=[s]; visited[s]=true;
         while(q.length){ const v=q.shift(); comp.push(v); for (const nb of adj[v]) if(!visited[nb]){visited[nb]=true;q.push(nb);} }
         if (comp.length<2) continue;
 
         let avail = comp.slice();
         const chosenSets = [];
+        function findK(sorted,k){
+          const arr=sorted, n=arr.length; let res=null;
+          function dfs(st, need, sum, ps){
+            if (sum>10) return false;
+            if (need===0){ if (sum===10){ res=ps; return true; } return false; }
+            for (let i=st;i<n;i++){
+              const idx=arr[i], v=small[idx].val;
+              if (sum+v>10) continue;
+              if (dfs(i+1, need-1, sum+v, [...ps, idx])) return true;
+            }
+            return false;
+          }
+          return dfs(0,k,0,[]) ? res : null;
+        }
 
         while(true){
           let picked=null;
           const sorted = [...avail].sort((ia,ib)=>small[ib].val-small[ia].val);
-
-          function findK(k){
-            const arr=sorted, n=arr.length; let res=null;
-            function dfs(st, need, sum, ps){
-              if (sum>10) return false;
-              if (need===0){ if (sum===10){ res=ps; return true; } return false; }
-              for (let i=st;i<n;i++){
-                const idx=arr[i], v=small[idx].val;
-                if (sum+v>10) continue;
-                if (dfs(i+1, need-1, sum+v, [...ps, idx])) return true;
-              }
-              return false;
-            }
-            return dfs(0,k,0,[]) ? res : null;
-          }
-
-          for (const k of [2,3,4,5,6]){ if (avail.length>=k){ const res=findK(k); if (res){ picked=res; break; } } }
-
+          for (const k of [2,3,4,5,6]){ if (avail.length>=k){ const res=findK(sorted,k); if (res){ picked=res; break; } } }
           if (picked){
             chosenSets.push(picked);
             const setPicked = new Set(picked);
             avail = avail.filter(i=>!setPicked.has(i));
-          }else{
-            break;
-          }
+          }else break;
         }
 
         for (const picked of chosenSets){
@@ -561,6 +600,7 @@
           chosen.forEach(b=>toRemove.add(b.id));
           rings.push({x:cx,y:cy,t:0,col:colorBig(10)});
           score += 16 + 2*chosen.length;
+          tenMadeThisTick++;
           changed = true;
         }
       }
@@ -572,17 +612,38 @@
       }
     }
 
+    // 学習ボーナス（スイング後2秒以内に10が生まれたら1点）
+    if (tenMadeThisTick>0 && gameTime <= swingBonusWindowEnd && !bonusGivenThisSwing){
+      runs += 1;
+      bonusGivenThisSwing = true;
+      toast('🎓 10ができた！ 学習ボーナス +1点');
+      updateHUD();
+    }
+
     return changed;
   }
 
-  // ===== physics step =====
+  // ===== 1フレーム =====
   function step(dt){
     gameTime += dt;
     cooldown = Math.max(0, cooldown-dt);
 
-    // ★ BASEBALL: スイング時間＆CD
-    if (BAT.swingT>0) BAT.swingT = Math.max(0, BAT.swingT - dt);
-    if (BAT.cd>0)     BAT.cd     = Math.max(0, BAT.cd - dt);
+    // 自動ピッチ
+    if (!over){
+      autoPitchTimer -= dt;
+      if (autoPitchTimer<=0){
+        autoPitch();
+        autoPitchTimer = AUTO_MIN + Math.random()*(AUTO_MAX-AUTO_MIN);
+      }
+    }
+
+    // スイング時間＆CD
+    if (BAT.swingT>0) {
+      BAT.swingT = Math.max(0, BAT.swingT - dt);
+    } else {
+      BAT.swinging = false;
+    }
+    if (BAT.cd>0) BAT.cd = Math.max(0, BAT.cd - dt);
 
     const breeze = BREEZE.amp * Math.sin(gameTime*BREEZE.speed);
 
@@ -590,7 +651,7 @@
     for (const t of tiles){
       t.vy += G*dt;
 
-      // belts（矢印と同じ向き）：v>0 →、v<0 ←
+      // ベルト
       const bottom = t.y + t.h;
       for (const b of BELTS){
         if (bottom > b.y - b.t && bottom < b.y + b.t){
@@ -598,11 +659,10 @@
           t.vx *= 0.992;
         }
       }
-
-      // breeze
+      // 風
       t.vx += breeze * dt * 0.12;
 
-      // damping
+      // 減衰と制限
       t.vx *= AIR_FRICTION; t.vy *= AIR_FRICTION;
       t.vx = clamp(t.vx, -VX_MAX, VX_MAX);
       t.vy = clamp(t.vy, -VY_MAX, VY_MAX);
@@ -611,25 +671,25 @@
 
       keepInside(t);
 
-      // small visual tilt
+      // 見た目の傾き（丸にも少し効かせる）
       const target = clamp(t.vx/620, -ROT_MAX, ROT_MAX);
       t.rot += (target - t.rot) * 0.12;
     }
 
     resolvePairs();
 
-    // merges
+    // 合体
     let changed, pass=0; do{ changed = tryMerges(); pass++; } while(changed && pass<16);
     if (changed) relaxWorld(4);
 
-    // ★ BASEBALL: スイング中は当たり判定
+    // バット当たり
     tryBatHits();
 
     // fx
     for (const r of rings){ r.t += dt; }
     rings = rings.filter(r=>r.t<0.9);
 
-    // game over
+    // ゲームオーバー（赤線）
     const AGE_SAFE = 0.45, MARGIN = 1;
     let danger=false;
     for (const t of tiles){
@@ -640,7 +700,101 @@
     if (dangerTime > 0.70 && !over){ over=true; toast('GAME OVER! 元に戻す or リセット'); }
   }
 
-  // ===== rendering =====
+  // ===== 描画 =====
+  function drawBall(x,y,h,val,rot){
+    // 野球ボール風（白丸＋赤い縫い目）
+    const R = h;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
+    // 本体
+    const g = ctx.createRadialGradient(-R*0.4,-R*0.6, R*0.2, 0,0, R);
+    g.addColorStop(0,'#fff'); g.addColorStop(1,'#e9e9e9');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0,0,R,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+
+    // 縫い目
+    ctx.strokeStyle='#d33'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(0,0,R*0.72, -1.1, 1.1); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,R*0.72, Math.PI-1.1, Math.PI+1.1); ctx.stroke();
+    // ステッチ
+    function stitches(a0,a1){
+      const n=6;
+      for(let i=0;i<=n;i++){
+        const t=i/n, ang=a0+(a1-a0)*t;
+        const px=Math.cos(ang)*R*0.72, py=Math.sin(ang)*R*0.72;
+        const nx=-Math.sin(ang), ny=Math.cos(ang);
+        ctx.beginPath();
+        ctx.moveTo(px-nx*4, py-ny*4); ctx.lineTo(px+nx*4, py+ny*4);
+        ctx.stroke();
+      }
+    }
+    stitches(-1.1,1.1); stitches(Math.PI-1.1, Math.PI+1.1);
+
+    // 数字
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold '+Math.floor(h*1.15)+'px system-ui'; ctx.fillText(val, 0, 2);
+
+    // ヒント：10- val
+    if (showHint){
+      ctx.fillStyle='rgba(0,0,0,.42)'; ctx.font=Math.floor(h*0.6)+'px system-ui';
+      ctx.fillText(10-val, 0, -h*1.2);
+    }
+    ctx.restore();
+  }
+
+  function drawSquare(x,y,h,val,rot){
+    const L = 2*h, r = Math.min(12, h*0.45);
+    const base = colorBig(val);
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
+    const g = ctx.createLinearGradient(-h, -h, h, h);
+    g.addColorStop(0,'#fff'); g.addColorStop(1, base);
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.roundRect(-h, -h, L, L, r); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = 'bold '+Math.floor(h*1.1)+'px system-ui'; ctx.fillText(val, 0, 1);
+    ctx.restore();
+  }
+
+  function drawTile(x,y,h,val,rot){
+    if (val<10) drawBall(x,y,h,val,rot);
+    else drawSquare(x,y,h,val,rot);
+  }
+
+  function drawBelt(y, t, dir){
+    ctx.fillStyle = 'rgba(234,229,218,0.55)';
+    ctx.fillRect(LEFT+1, y-t, RIGHT-LEFT-2, t*2);
+    ctx.save(); ctx.translate(0, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    for (let x=LEFT+10; x<RIGHT-10; x+=30){
+      ctx.beginPath();
+      if (dir>0){ ctx.moveTo(x-6, -4); ctx.lineTo(x+6, 0); ctx.lineTo(x-6, 4); }
+      else      { ctx.moveTo(x+6, -4); ctx.lineTo(x-6, 0); ctx.lineTo(x+6, 4); }
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawDiamondHUD(){
+    // 画面左上にダイヤモンド表示
+    const x = 32, y = 26, a = 9;
+    function base(px,py,filled){
+      ctx.save(); ctx.translate(px,py); ctx.rotate(Math.PI/4);
+      ctx.fillStyle = filled ? 'rgba(17,163,111,0.9)' : 'rgba(0,0,0,0.08)';
+      ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.rect(-a,-a,a*2,a*2); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    base(x, y, bases.second);
+    base(x-18, y+18, bases.first);
+    base(x+18, y+18, bases.third);
+    // ホームベース（中央固定の目安）
+    ctx.save(); ctx.translate(x, y+36); ctx.rotate(Math.PI/4);
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.beginPath(); ctx.rect(-a,-a,a*2,a*2); ctx.fill();
+    ctx.restore();
+  }
+
   function draw(){
     ctx.clearRect(0,0,W,H);
 
@@ -653,17 +807,17 @@
     ctx.rect(BOARD_LEFT, BOARD_TOP, BOARD_RIGHT-BOARD_LEFT, BOARD_BOTTOM-BOARD_TOP);
     ctx.clip();
 
-    // コンベア帯（矢印の向き＝移動方向）
+    // コンベア帯
     for (const b of BELTS) drawBelt(b.y, b.t, b.v>0?1:-1);
 
     // 赤線
     ctx.strokeStyle = 'rgba(226,78,82,.65)';
     ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke(); ctx.setLineDash([]);
 
-    // ゴースト（次の投球プレビュー）
+    // ゴースト（次の球の目安）
     const hN = halfFor(nextQ[0]);
-    const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
-    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, nextQ[0], 0); ctx.globalAlpha=1;
+    const ax = (LEFT+RIGHT)/2;
+    ctx.globalAlpha=.22; drawBall(ax, CEIL-28, hN, nextQ[0], 0); ctx.globalAlpha=1;
 
     // タイル
     for (const t of tiles) drawTile(t.x,t.y,t.h,t.val,t.rot);
@@ -679,23 +833,28 @@
 
     ctx.restore();
 
-    // ★ BASEBALL: バットの表示（ガイド弧＆ヘッド円）
+    // バット（中央固定）
     {
-      // ガイド弧
-      ctx.strokeStyle = 'rgba(0,0,0,.08)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
       const a0 = BAT.arc.start, a1 = BAT.arc.end, R = 70;
-      ctx.arc(BAT.cx, BAT.cy, R, a0, a1);
-      ctx.stroke();
-
-      // ヘッド（当たり判定の円）
+      // ガイド弧
+      ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(BAT.cx, BAT.cy, R, a0, a1); ctx.stroke();
+      // ヘッド円
       const bp = currentBatPos();
       ctx.globalAlpha = (BAT.swingT>0) ? 0.95 : 0.5;
       ctx.fillStyle = 'rgba(20,20,20,.20)';
       ctx.beginPath(); ctx.arc(bp.x, bp.y, BAT.r, 0, Math.PI*2); ctx.fill();
       ctx.globalAlpha = 1;
+      // 「ねらい：10-?」ヒント（次の球の補助）
+      if (showHint){
+        ctx.fillStyle='rgba(0,0,0,.55)'; ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.font='bold 14px system-ui';
+        ctx.fillText('ねらい：'+(10 - nextQ[0]), BAT.cx, BAT.cy + R + 8);
+      }
     }
+
+    // ベースHUD
+    drawDiamondHUD();
 
     if (over){
       ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.fillRect(0,0,W,H);
@@ -705,55 +864,18 @@
     }
   }
 
-  function drawBelt(y, t, dir){
-    ctx.fillStyle = 'rgba(234,229,218,0.55)';
-    ctx.fillRect(LEFT+1, y-t, RIGHT-LEFT-2, t*2);
-    ctx.save(); ctx.translate(0, y);
-    ctx.fillStyle = 'rgba(0,0,0,0.08)';
-    for (let x=LEFT+10; x<RIGHT-10; x+=30){
-      ctx.beginPath();
-      if (dir>0){ // 右向き
-        ctx.moveTo(x-6, -4); ctx.lineTo(x+6, 0); ctx.lineTo(x-6, 4);
-      }else{      // 左向き
-        ctx.moveTo(x+6, -4); ctx.lineTo(x-6, 0); ctx.lineTo(x+6, 4);
-      }
-      ctx.closePath(); ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  function drawTile(x,y,h,val,rot){
-    const L = 2*h, r = Math.min(12, h*0.45);
-    const base = val<10 ? colorSmall(val) : colorBig(val);
-
-    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
-
-    const g = ctx.createLinearGradient(-h, -h, h, h);
-    g.addColorStop(0,'#fff'); g.addColorStop(1, base);
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.roundRect(-h, -h, L, L, r); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
-
-    ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font = 'bold '+Math.floor(h*1.2)+'px system-ui'; ctx.fillText(val, 0, 1);
-    if (showHint && val<10){
-      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font=Math.floor(h*0.6)+'px system-ui';
-      ctx.fillText(10-val, 0, -h*1.1);
-    }
-    ctx.restore();
-  }
-
   function roundRectPath(x,y,w,h,r){
     ctx.beginPath(); ctx.moveTo(x+r,y);
     ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
-  // ===== main loop =====
+  // ===== メインループ =====
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1300); }
   let acc=0, last=performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now; acc += dt;
+    const DT = 1/60, SUBSTEPS = 3;
     while(acc>DT){
       const sdt = DT/SUBSTEPS;
       for (let k=0;k<SUBSTEPS;k++) step(sdt);
@@ -769,7 +891,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v42-sqbelt-merge-baseball';
+    const CACHE='10baseball-decamerge-kids-v1';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
