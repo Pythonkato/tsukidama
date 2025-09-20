@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares + Ops) v3.4</title>
+<title>10 Game — DecaMerge (Squares / Plus Only) v3.6</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,7 +12,7 @@
 <!-- Manifest (inline) -->
 <script type="application/manifest+json">
 {
-  "name": "10 Game — DecaMerge (Squares + Ops)",
+  "name": "10 Game — DecaMerge (Squares)",
   "short_name": "10 Game",
   "start_url": ".",
   "display": "standalone",
@@ -31,7 +31,6 @@
     --n1:#EB6A5E; --n2:#EE8E5E; --n3:#F0C95E; --n4:#79C5AE; --n5:#A7D5FF;
     --n6:#7CB0F2; --n7:#B6A2E7; --n8:#F28BC4; --n9:#D3A760;
     --b10:#3AB272; --b20:#2A8FBD; --b40:#7A66D9; --b80:#E05C80; --b160:#D48B26; --b320:#3B78D8; --b640:#2F9F66;
-    --tok:#111; --tokFg:#fff;
   }
   *{box-sizing:border-box}
   html,body{
@@ -77,7 +76,7 @@
   <header>
     <div class="brand">
       <div class="ttl">10 Game</div>
-      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋演算）</div>
+      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角・シンプル）</div>
     </div>
     <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
@@ -99,21 +98,19 @@
 
   <footer>
     指で<strong>左右にスライド</strong>→<strong>指を離す</strong>と投入。<br>
-    小タイルは<strong>合計=10</strong>で合体（2〜6個）。さらに<strong>2×5=10</strong>ペア、<strong>−/÷トークン</strong>で学び＆コンボ！
+    <b>1〜9</b>は<strong>合計=10</strong>で<strong>即合体</strong>（2〜6個／複数同時）。<b>同じ大タイル</b>は<b>倍々合体</b>！
   </footer>
 </div>
 
 <!-- How-to -->
 <div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
-    <h3>🎮 遊び方（10 Game - DecaMerge / Squares + Ops）</h3>
+    <h3>🎮 遊び方（10 Game - DecaMerge / Squares, Plus Only）</h3>
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせ、<strong>指を離す</strong>と投入。</li>
-      <li><strong>1〜9の小タイル</strong>：隣り合うグループで<strong>合計=10</strong>なら<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
-      <li><strong>かけ算</strong>：<b>2 と 5</b>が隣り合うと<strong>10</strong>に合体。</li>
-      <li><strong>ひき算（−トークン）</strong>：小タイルに触れるとその値を<strong>10−x</strong>に変換（補数）。</li>
-      <li><strong>わり算（÷トークン）</strong>：<b>10,20,40…</b>に触れると半分に分割（10→5+5、20→10+10…）。</li>
-      <li><strong>同じ大タイル</strong>は軽く重なったら<strong>倍々合体</strong>。赤線より上に一定時間あると<b>ゲームオーバー</b>。</li>
+      <li><strong>1〜9</strong>が<strong>隣り合ったグループ</strong>の中で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
+      <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が軽く重なったら<strong>倍々合体</strong>。</li>
+      <li>赤線より上に一定時間あると<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
     </ol>
     <p style="color:var(--muted);font-size:13px">ヒントONで各小タイルに「10まであといくつ」を表示。</p>
     <div class="actions">
@@ -156,8 +153,8 @@
   const W = cv.width, H = cv.height;
   const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80; // 赤線
   const DT = 1/60;
-  const G = 1850;                 // 重力強め（積み上がりやすく）
-  const AIR_FRICTION = 0.975;     // 減衰強め
+  const G = 1850;                 // 重力：積み上がりやすく
+  const AIR_FRICTION = 0.975;     // 減衰強め → 止まりやすい
   const REST_FLOOR = 0.08;        // 低反発
   const REST_WALL  = 0.10;
   const REST_N     = 0.05;        // タイル同士の反発（小）
@@ -165,12 +162,12 @@
   const MAX_TILES  = 95;
 
   // ===== game state =====
-  /** @type {{type:'num'|'token',tokenType?:'minus'|'divide',x:number,y:number,vx:number,vy:number,h:number,val:number,id:number,m:number,born:number}[]} */
+  /** @type {{x:number,y:number,vx:number,vy:number,h:number,val:number,id:number,m:number,born:number}[]} */
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
   let aimX = (LEFT+RIGHT)/2;
-  let nextQ = [randSpawn(), randSpawn()];
-  let showHint = true;
+  let nextQ = [randSmall(), randSmall()];
+  let showHint = false; // 初期OFFでシンプルに
   let dangerTime = 0;
   let idSeq = 1;
 
@@ -193,7 +190,7 @@
     return CSS('--b10');
   }
 
-  // === 面積比（四角）：辺長 L = L10 * √(value/10) / ここでは半辺 h を返す ===
+  // === 面積比（四角）：辺長 L = L10 * √(value/10) / 半辺 h を返す ===
   const L10 = 56, LMAX = 120; // 10の辺長 / 上限
   function halfFor(val){
     const L = Math.min(L10 * Math.sqrt(Math.max(val,1)/10), LMAX);
@@ -201,7 +198,7 @@
   }
   function massFor(h){ const L=2*h; return L*L; } // 面積＝質量
 
-  // 生成：数タイル中心 + 低確率でトークン
+  // 生成分布（やや高数値寄りでテンポUP）
   function randSmall(){
     const r = Math.random();
     if (r<0.06) return 1;
@@ -214,24 +211,14 @@
     if (r<0.93) return 8;
     return 9;
   }
-  function randSpawn(){
-    const t = Math.random();
-    if (t < 0.06) return { type:'token', tokenType:'divide' }; // 6%
-    if (t < 0.14) return { type:'token', tokenType:'minus'  }; // 8%
-    return { type:'num', val: randSmall() };
-  }
-  function toLabel(sp){
-    if (sp.type==='token') return sp.tokenType==='minus' ? '−' : '÷';
-    return ''+sp.val;
-  }
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_ops')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_ops', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_ops')||0;
-    nextAEl.textContent = toLabel(nextQ[0]);
-    nextBEl.textContent = toLabel(nextQ[1]);
+    const best = +(localStorage.getItem('decamerge_best_sq_plus')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_plus', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_plus')||0;
+    nextAEl.textContent = nextQ[0];
+    nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
     undoBtn.disabled = !undoState;
   }
@@ -248,7 +235,7 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqops')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqops','1'); }
+  if (!localStorage.getItem('decamerge_seen_help_sqplus')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqplus','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -287,18 +274,18 @@
   // ===== game control =====
   function reset(){
     tiles = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0; gameTime=0;
-    aimX=(LEFT+RIGHT)/2; nextQ=[randSpawn(), randSpawn()]; undoState=null;
+    aimX=(LEFT+RIGHT)/2; nextQ=[randSmall(), randSmall()]; undoState=null;
     updateHUD();
   }
   function snapshot(){
-    return { tiles: tiles.map(t=>({type:t.type,tokenType:t.tokenType,x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born})),
+    return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born})),
              rings: rings.map(r=>({...r})),
-             score, over, cooldown, dangerTime, aimX, nextQ:JSON.parse(JSON.stringify(nextQ)), gameTime };
+             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
   }
   function restore(s){
     tiles = s.tiles.map(t=>({...t}));
     rings = s.rings.map(r=>({...r}));
-    score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=JSON.parse(JSON.stringify(s.nextQ));
+    score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
     gameTime=s.gameTime; updateHUD();
   }
   function undo(){ if (!undoState) return; restore(undoState); undoState=null; toast('1手戻しました'); }
@@ -306,21 +293,11 @@
     if (over || cooldown>0) return;
     if (tiles.length>=MAX_TILES){ toast('いっぱいです。合体で減らそう！'); return; }
     undoState = snapshot();
-    const spawn = nextQ.shift(); nextQ.push(randSpawn());
-    let obj;
-    if (spawn.type==='token'){
-      const h = 16; // 小さめ
-      const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
-      obj = {type:'token', tokenType:spawn.tokenType, x, y:CEIL-30, vx:0, vy:0, h, val:0, id:idSeq++, m:massFor(h), born:gameTime};
-    }else{
-      const val = spawn.val;
-      const h = halfFor(val);
-      const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
-      obj = {type:'num', x, y:CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime};
-      score += val;
-    }
-    tiles.push(obj);
-    cooldown = .18; updateHUD();
+    const val = nextQ.shift(); nextQ.push(randSmall());
+    const h = halfFor(val);
+    const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
+    tiles.push({x, y: CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime});
+    score += val; cooldown = .18; updateHUD();
   }
 
   // ===== physics (AABB squares) =====
@@ -347,7 +324,7 @@
       }
     }
 
-    // Tile-tile collisions (mass-based resolution)
+    // タイル同士の衝突（質量比例で解決・低反発）
     for (let i=0;i<tiles.length;i++){
       for (let j=i+1;j<tiles.length;j++){
         const A=tiles[i], B=tiles[j];
@@ -380,9 +357,6 @@
       }
     }
 
-    // トークン挙動（−で補数化、÷で分割）
-    tokenActions();
-
     // 合体（複数パスで収束）
     let changed, pass=0;
     do{ changed = tryMerges(); pass++; } while(changed && pass<16);
@@ -403,66 +377,8 @@
     if (dangerTime > 0.70 && !over){ over=true; toast('GAME OVER! 元に戻す or リセット'); }
   }
 
-  // ===== token interactions =====
-  function tokenActions(){
-    const toRemove = new Set();
-    for (const tok of tiles){
-      if (tok.type!=='token') continue;
-
-      if (tok.tokenType==='minus'){
-        // 近い小タイル（1..9）を探し、重なり閾値で補数化
-        let target=null, bestD=1e9;
-        for (const t of tiles){
-          if (t.type!=='num' || t.val>=10) continue;
-          const dx=Math.abs(t.x - tok.x), dy=Math.abs(t.y - tok.y);
-          const tol = 2 + Math.min(t.h, tok.h)*0.6;
-          if (dx <= t.h+tok.h && dy <= t.h+tok.h){
-            const d = dx+dy;
-            if (d<bestD){ bestD=d; target=t; }
-          }else if (dx<=t.h+tok.h+tol && dy<=t.h+tok.h+tol){
-            const d = dx+dy+5;
-            if (d<bestD){ bestD=d; target=t; }
-          }
-        }
-        if (target){
-          const before = target.val;
-          target.val = Math.max(1, 10 - target.val); // 10−x（1..9に収まる）
-          target.h = halfFor(target.val); target.m = massFor(target.h);
-          rings.push({x:target.x,y:target.y,t:0,col:'#111'}); // 黒リングで演出
-          score += 5; // 小ボーナス
-          toRemove.add(tok.id);
-        }
-      }else if (tok.tokenType==='divide'){
-        // 大タイル（>=10 かつ偶数*5）に触れたら半分に分割
-        let target=null;
-        for (const t of tiles){
-          if (t.type!=='num' || t.val<10) continue;
-          const overlapX = (t.h+tok.h) - Math.abs(t.x-tok.x);
-          const overlapY = (t.h+tok.h) - Math.abs(t.y-tok.y);
-          if (overlapX>0 && overlapY>0){ target=t; break; }
-        }
-        if (target){
-          const v = target.val;
-          if (v % 20 === 0 || v===10 || v===20 || v===40 || v===80 || v===160 || v===320 || v===640){
-            const half = v/2;
-            const h = halfFor(half);
-            const offs = Math.max(6, h*0.2);
-            tiles.push({type:'num', x:target.x-offs, y:target.y, vx:target.vx-20, vy:target.vy, h, val:half, id:idSeq++, m:massFor(h), born:gameTime});
-            tiles.push({type:'num', x:target.x+offs, y:target.y, vx:target.vx+20, vy:target.vy, h, val:half, id:idSeq++, m:massFor(h), born:gameTime});
-            rings.push({x:target.x,y:target.y,t:0,col:'#111'});
-            score += 5;
-            // remove target & token
-            tiles = tiles.filter(t=>t.id!==target.id);
-            toRemove.add(tok.id);
-          }
-        }
-      }
-    }
-    if (toRemove.size) tiles = tiles.filter(t=>!toRemove.has(t.id));
-  }
-
   // ===== merging rules =====
-  const CONTACT_TOL_SMALL = 7;  // 小タイルの隣接許容
+  const CONTACT_TOL_SMALL = 7;  // 小タイルの隣接許容（ゆるめ）
   const BIG_OVERLAP_PIX   = 1;  // 大タイル重なり閾値
 
   function touchingSmall(a,b){
@@ -478,16 +394,16 @@
   function tryMerges(){
     let changed=false;
 
-    // --- 大タイル：同値が軽く重なったら倍化 ---
+    // --- 大タイル：同値倍化 ---
     const removedBig = new Set();
     for (let i=0;i<tiles.length;i++){
-      const A=tiles[i]; if (A.type!=='num' || A.val<10 || removedBig.has(A.id)) continue;
+      const A=tiles[i]; if (A.val<10 || removedBig.has(A.id)) continue;
       for (let j=i+1;j<tiles.length;j++){
-        const B=tiles[j]; if (B.type!=='num' || B.val<10 || removedBig.has(B.id)) continue;
+        const B=tiles[j]; if (B.val<10 || removedBig.has(B.id)) continue;
         if (A.val===B.val && overlappingBig(A,B)){
           const out=A.val*2, nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
           const h=halfFor(out), vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
-          tiles.push({type:'num', x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime});
+          tiles.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime});
           removedBig.add(A.id); removedBig.add(B.id);
           rings.push({x:nx,y:ny,t:0,col:colorBig(out)});
           score += Math.max(30,out);
@@ -497,31 +413,8 @@
     }
     if (removedBig.size){ tiles = tiles.filter(t=>!removedBig.has(t.id)); updateHUD(); }
 
-    // --- 小タイル：2×5=10 の特別ルール（×） ---
-    const small = tiles.filter(t=>t.type==='num' && t.val<10);
-    const toRemoveMul = new Set(); const toAddMul=[];
-    for (let i=0;i<small.length;i++){
-      for (let j=i+1;j<small.length;j++){
-        const A=small[i], B=small[j];
-        if (toRemoveMul.has(A.id) || toRemoveMul.has(B.id)) continue;
-        if (A.val*B.val===10 && touchingSmall(A,B)){
-          const cx=(A.x+B.x)/2, cy=(A.y+B.y)/2, h=halfFor(10);
-          const vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
-          toAddMul.push({type:'num', x:cx,y:cy,vx,vy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime});
-          toRemoveMul.add(A.id); toRemoveMul.add(B.id);
-          rings.push({x:cx,y:cy,t:0,col:colorBig(10)});
-          score += 8; // ×ボーナス
-          changed = true;
-        }
-      }
-    }
-    if (toRemoveMul.size){
-      tiles = tiles.filter(t=>!toRemoveMul.has(t.id));
-      tiles.push(...toAddMul);
-      updateHUD();
-    }
-
     // --- 小タイル：合計=10（2〜6個、同フレーム複数） ---
+    const small = tiles.filter(t=>t.val<10);
     if (small.length){
       const adj = small.map(()=>[]);
       for (let i=0;i<small.length;i++)
@@ -578,7 +471,7 @@
           const cvx= chosen.reduce((a,b)=>a+b.vx,0)/chosen.length * 0.1;
           const cvy= chosen.reduce((a,b)=>a+b.vy,0)/chosen.length * 0.1;
           const h  = halfFor(10);
-          toAdd.push({type:'num', x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime});
+          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime});
           chosen.forEach(b=>toRemove.add(b.id));
           rings.push({x:cx,y:cy,t:0,col:colorBig(10)});
           score += 16 + 2*chosen.length;
@@ -607,22 +500,12 @@
     ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke(); ctx.setLineDash([]);
 
     // ghost (next)
-    const gsp = nextQ[0];
-    if (gsp.type==='token'){
-      const hN = 16;
-      const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
-      ctx.globalAlpha=.28; drawToken(ax, CEIL-28, hN, gsp.tokenType); ctx.globalAlpha=1;
-    }else{
-      const hN = halfFor(gsp.val);
-      const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
-      ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, gsp.val); ctx.globalAlpha=1;
-    }
+    const hN = halfFor(nextQ[0]);
+    const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
+    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, nextQ[0]); ctx.globalAlpha=1;
 
     // tiles
-    for (const t of tiles){
-      if (t.type==='token') drawToken(t.x,t.y,t.h,t.tokenType);
-      else drawTile(t.x,t.y,t.h,t.val);
-    }
+    for (const t of tiles) drawTile(t.x,t.y,t.h,t.val);
 
     // rings
     for (const rr of rings){
@@ -658,17 +541,6 @@
     }
   }
 
-  function drawToken(x,y,h,kind){
-    const L=2*h, r=Math.min(10, h*0.6);
-    ctx.fillStyle = 'linear-gradient'; // we'll draw solid dark
-    ctx.fillStyle = '#111';
-    ctx.beginPath(); ctx.roundRect(x-h, y-h, L, L, r); ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=2; ctx.stroke();
-    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font = 'bold '+Math.floor(h*1.3)+'px system-ui';
-    ctx.fillText(kind==='minus' ? '−' : '÷', x, y+1);
-  }
-
   function roundRectPath(x,y,w,h,r){
     ctx.beginPath(); ctx.moveTo(x+r,y);
     ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
@@ -691,7 +563,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v34-sqops';
+    const CACHE='10game-decamerge-v36-sqplus';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
