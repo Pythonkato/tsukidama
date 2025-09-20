@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares+Belts+Special) v4.3</title>
+<title>10 Game — DecaMerge (Squares+Belts+Special) v4.4</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -31,13 +31,13 @@
     --n1:#EB6A5E; --n2:#EE8E5E; --n3:#F0C95E; --n4:#79C5AE; --n5:#A7D5FF;
     --n6:#7CB0F2; --n7:#B6A2E7; --n8:#F28BC4; --n9:#D3A760;
     --b10:#3AB272; --b20:#2A8FBD; --b40:#7A66D9; --b80:#E05C80; --b160:#D48B26; --b320:#3B78D8; --b640:#2F9F66;
-    --gold:#F7C948; --ice:#CFE8FF; --belt:#EAE5DA;
+    --gold:#F7C948; --ice:#CFE8FF;
   }
   *{box-sizing:border-box}
   html,body{
     height:100%; margin:0; color:var(--ink);
     background:radial-gradient(1200px 600px at 50% -10%,#FFF,#F4F1EA 55%);
-    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Segoe UI",Roboto,"Noto Sans JP",Arial,sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue","Segoe UI",Roboto,"Noto Sans JP",Arial,"Noto Sans JP",sans-serif;
   }
   #wrap{min-height:100%;display:flex;flex-direction:column}
   header{padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
@@ -77,7 +77,7 @@
   <header>
     <div class="brand">
       <div class="ttl">10 Game</div>
-      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア＋特別ブロック）</div>
+      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア＋特別）</div>
     </div>
     <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
@@ -111,9 +111,9 @@
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせ、<strong>指を離す</strong>と投入。</li>
       <li><strong>1〜9</strong>が<strong>隣り合うグループ</strong>で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
-      <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が<strong>接触 or 重なり</strong>で<strong>倍々合体</strong>。</li>
-      <li>特別ブロック：<br>・<b>★ ワイルド</b>…1〜9のどれにもなる。<br>・<b>❄ スロウ</b>…静止すると発動して消え、コンベア＆横風が<b>7秒</b>ゆっくり。</li>
-      <li>7/8/9が続かないように出現率を調整。危ない時は低い数字が出やすい。</li>
+      <li><strong>10,20,40…</strong>は<strong>同値どうし</strong>が<strong>接触 or 重なり</strong>で倍々合体。</li>
+      <li>特別ブロック：<br>・<b>★ ワイルド</b>…1〜9のどれにもなる。<br>・<b>❄ スロウ</b>…静止で発動、コンベア＆横風が<b>7秒</b>スロー。</li>
+      <li>7/8/9の連続出現を抑制。危険時は低い数字が出やすい。</li>
       <li>赤線より上に一定時間あると<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
     </ol>
     <div class="actions">
@@ -127,6 +127,20 @@
 
 <script>
 (()=> {
+  // ===== roundRect polyfill (古いSafari対策) =====
+  if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r){
+      const rr = Math.min(r, Math.abs(w)/2, Math.abs(h)/2);
+      this.beginPath();
+      this.moveTo(x+rr,y);
+      this.arcTo(x+w,y,x+w,y+h,rr);
+      this.arcTo(x+w,y+h,x,y+h,rr);
+      this.arcTo(x,y+h,x,y,rr);
+      this.arcTo(x,y,x+w,y,rr);
+      this.closePath();
+    };
+  }
+
   // ===== DOM =====
   const cv = document.getElementById('cv');
   const ctx = cv.getContext('2d');
@@ -184,10 +198,10 @@
   let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
-  let freezeTimer = 0; // ❄効果
+  let freezeTimer = 0;
 
   // anti-streak
-  const lastNums = []; // 直近の数（1〜9のみ）最大2件
+  const lastNums = [];
 
   // gesture / modal
   let helpOpen = false, dragging = false, activePointer=null;
@@ -210,28 +224,23 @@
 
   const L10 = 56, LMAX = 120;
   function halfFor(val){
-    const base = Math.max(val||6,1); // 0や特殊は“6サイズ”相当で
+    const base = Math.max(val||6,1);
     const L = Math.min(L10 * Math.sqrt(base/10), LMAX);
     return L/2;
   }
   function massFor(h){ const L=2*h; return L*L; }
-
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  function labelOf(n){ return n.wild ? '★' : (n.slow ? '❄' : n.val); }
 
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_belt_v43')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v43', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v43')||0;
+    const best = +(localStorage.getItem('decamerge_best_sq_belt_v44')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v44', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v44')||0;
     nextAEl.textContent = labelOf(nextQ[0]);
     nextBEl.textContent = labelOf(nextQ[1]);
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
     undoBtn.disabled = !undoState;
-  }
-  function labelOf(n){
-    if (n.wild) return '★';
-    if (n.slow) return '❄';
-    return n.val;
   }
 
   // ===== modal open/close =====
@@ -246,7 +255,8 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v43')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v43','1'); }
+  // 初回ヘルプ：開くけど、開きっぱなしで「落ちない」と誤解しないよう、一度見たら二度と自動表示しない
+  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v44')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v44','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -257,25 +267,36 @@
   function onPointerDown(e){
     if (helpOpen) return;
     if (activePointer !== null) return;
-    cv.setPointerCapture(e.pointerId);
-    activePointer = e.pointerId;
+    cv.setPointerCapture?.(e.pointerId);
+    activePointer = e.pointerId ?? 'mouse';
     dragging = true;
     aimX = clamp(canvasX(e), LEFT, RIGHT);
   }
   function onPointerMove(e){
-    if (!dragging || e.pointerId !== activePointer) return;
+    if (!dragging) return;
+    if (activePointer!==('mouse') && e.pointerId!==activePointer) return;
     aimX = clamp(canvasX(e), LEFT, RIGHT);
   }
   function onPointerUp(e){
-    if (e.pointerId !== activePointer) return;
+    if (!dragging) return;
+    if (activePointer!==('mouse') && e.pointerId!==activePointer) return;
     if (!helpOpen) drop(); // 指を離したら落とす
     resetPointerState();
   }
+
   if (window.PointerEvent){
     cv.addEventListener('pointerdown', onPointerDown, {passive:false});
     cv.addEventListener('pointermove', onPointerMove, {passive:false});
     cv.addEventListener('pointerup',   onPointerUp,   {passive:false});
     cv.addEventListener('pointercancel', ()=> resetPointerState(), {passive:true});
+  }else{
+    // フォールバック（古いiOS用）
+    cv.addEventListener('touchstart', (e)=>{ onPointerDown(e.touches[0]); e.preventDefault(); }, {passive:false});
+    cv.addEventListener('touchmove',  (e)=>{ onPointerMove(e.touches[0]); e.preventDefault(); }, {passive:false});
+    cv.addEventListener('touchend',   (e)=>{ onPointerUp({pointerId:'mouse'}); e.preventDefault(); }, {passive:false});
+    cv.addEventListener('mousedown',  (e)=>{ onPointerDown(e); });
+    addEventListener('mousemove',     (e)=>{ if(dragging) onPointerMove(e); });
+    addEventListener('mouseup',       (e)=>{ if(dragging) onPointerUp(e); });
   }
 
   resetBtn.addEventListener('click', reset);
@@ -284,34 +305,26 @@
 
   // ===== generator =====
   function makeNext(){
-    // 危険時ほど低数寄り、7/8/9ストリーク対策、稀に特別
     const danger = dangerTime>0.25 ? 1 : 0;
-    // 特別（3〜6%）：★ 4%、❄ 2%
+    // 特別（3〜6%）
     const sp = Math.random();
     if (sp < 0.04) return {wild:true, val:0};
     if (sp < 0.06) return {slow:true, val:0};
 
-    // 重み（合計=1）：低数寄り。危険時は1〜4をさらに+α
+    // 重み（低数寄り／危険時さらに低数寄り）
     const w = danger ? [0.12,0.13,0.14,0.14,0.14,0.13,0.10,0.06,0.04]
                      : [0.10,0.12,0.14,0.15,0.15,0.14,0.10,0.06,0.04];
     let r = Math.random(), v=1;
     for (let i=0;i<9;i++){ r-=w[i]; if (r<=0){ v=i+1; break; } }
 
-    // 7/8/9ストリーク抑制（直近2つが7〜9なら80%で引き直し）
+    // 7/8/9ストリーク抑制
     const high = (n)=>n>=7;
-    if (lastNums.length>=2 && high(lastNums[lastNums.length-1]) && high(lastNums[lastNums.length-2])){
-      if (v>=7 && Math.random()<0.8){
-        // 引き直し（1〜6から）
-        const low = [1,2,3,4,5,6];
-        v = low[Math.floor(Math.random()*low.length)];
-      }
+    if (lastNums.length>=2 && high(lastNums[0]) && high(lastNums[1]) && v>=7 && Math.random()<0.8){
+      v = 1 + Math.floor(Math.random()*6); // 1..6
     }
     return {val:v};
   }
-
-  function pushHistory(n){
-    if (n>=1 && n<=9){ lastNums.push(n); if (lastNums.length>2) lastNums.shift(); }
-  }
+  function pushHistory(n){ if (n>=1 && n<=9){ lastNums.push(n); if (lastNums.length>2) lastNums.shift(); } }
 
   // ===== game control =====
   function reset(){
@@ -336,9 +349,8 @@
     if (over || cooldown>0) return;
     if (tiles.length>=MAX_TILES){ toast('いっぱいです。合体で減らそう！'); return; }
     undoState = snapshot();
-    const item = nextQ.shift(); nextQ.push(makeNext());
 
-    // 物理サイズは val==0（特殊）は中庸サイズ
+    const item = nextQ.shift(); nextQ.push(makeNext());
     const h = halfFor(item.val||6);
     const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
     const tile = {x, y: CEIL-30, vx:0, vy:0, h, val:item.val||0, id:idSeq++, m:massFor(h), born:gameTime, rot:0};
@@ -346,13 +358,13 @@
     if (item.slow) tile.slow = true;
     tiles.push(tile);
 
-    if (!item.wild && !item.slow) { score += item.val; pushHistory(item.val); } // 特殊はスコア加算なし
+    if (!item.wild && !item.slow) { score += item.val; pushHistory(item.val); }
     cooldown = .18; updateHUD();
   }
 
   // ===== physics helpers =====
   const CONTACT_TOL_SMALL = 7;
-  const BIG_MERGE_TOL     = 3;
+  const BIG_MERGE_TOL     = 3;   // エッジ接触許容
 
   function keepInside(t){
     const BOUND_SLOP = 0.5;
@@ -418,7 +430,7 @@
     for (const t of tiles){
       t.vy += G*dt;
 
-      // belts（矢印の向きと同じ）
+      // belts（矢印の向きと同じに加速）
       const bottom = t.y + t.h;
       for (const b of BELTS){
         if (bottom > b.y - b.t && bottom < b.y + b.t){
@@ -439,14 +451,13 @@
 
       keepInside(t);
 
-      // slow発動判定（静止で0.3s）
+      // slow発動判定（静止0.3s）
       if (t.slow){
         t.rest = (Math.hypot(t.vx,t.vy)<15) ? (t.rest||0)+dt : 0;
         if (t.rest>0.3){
           freezeTimer = Math.max(freezeTimer, 7.0);
           rings.push({x:t.x,y:t.y,t:0,col:'rgba(100,160,255,1)'});
           toast('❄ スロウ発動！');
-          // remove tile
           tiles = tiles.filter(x=>x.id!==t.id);
           break;
         }
@@ -459,7 +470,7 @@
 
     resolvePairs();
 
-    // merges
+    // merges（多段）
     let changed, pass=0; do{ changed = tryMerges(); pass++; } while(changed && pass<16);
     if (changed) relaxWorld(4);
 
@@ -483,19 +494,20 @@
     const dx=Math.abs(b.x-a.x), dy=Math.abs(b.y-a.y);
     return dx <= (a.h + b.h + CONTACT_TOL_SMALL) && dy <= (a.h + b.h + CONTACT_TOL_SMALL);
   }
+  // 接触/重なりのギャップ基準（エッジで±数pxでもOK）
   function contactBig(a,b){
-    const overlapX = (a.h+b.h) - Math.abs(b.x-a.x);
-    const overlapY = (a.h+b.h) - Math.abs(b.y-a.y);
-    return (overlapX >= 0 && overlapY >= -BIG_MERGE_TOL) ||
-           (overlapY >= 0 && overlapX >= -BIG_MERGE_TOL) ||
-           (overlapX >= 0 && overlapY >= 0);
+    const gapX = Math.abs(b.x-a.x) - (a.h+b.h); // >0 なら離れている
+    const gapY = Math.abs(b.y-a.y) - (a.h+b.h);
+    const overlapX = gapX<=0, overlapY = gapY<=0;
+    return (overlapX && gapY<=BIG_MERGE_TOL) || (overlapY && gapX<=BIG_MERGE_TOL);
   }
 
   function tryMerges(){
     let changed=false;
 
-    // 大タイル：同値→倍々
+    // 大タイル：同値→倍々（一括適用で安全）
     const removedBig = new Set();
+    const addBig = [];
     for (let i=0;i<tiles.length;i++){
       const A=tiles[i]; if (A.val<10 || A.wild || A.slow || removedBig.has(A.id)) continue;
       for (let j=i+1;j<tiles.length;j++){
@@ -503,7 +515,7 @@
         if (A.val===B.val && contactBig(A,B)){
           const out=A.val*2, nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
           const h=halfFor(out), vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
-          tiles.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime, rot:(A.rot+B.rot)/2});
+          addBig.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime, rot:(A.rot+B.rot)/2});
           removedBig.add(A.id); removedBig.add(B.id);
           rings.push({x:nx,y:ny,t:0,col:colorBig(out)});
           score += Math.max(30,out);
@@ -511,9 +523,13 @@
         }
       }
     }
-    if (removedBig.size){ tiles = tiles.filter(t=>!removedBig.has(t.id)); updateHUD(); }
+    if (removedBig.size){
+      tiles = tiles.filter(t=>!removedBig.has(t.id));
+      tiles.push(...addBig);
+      updateHUD();
+    }
 
-    // 小タイル（数値＋★）：合計=10（2〜6個、同フレーム複数）
+    // 小タイル（★含む）：合計=10（2〜6個複数）
     const small = tiles.filter(t=>(t.val>0 && t.val<10 && !t.slow) || t.wild===true);
     if (small.length){
       const adj = small.map(()=>[]);
@@ -524,47 +540,41 @@
       const visited = new Array(small.length).fill(false);
       const toRemove = new Set(); const toAdd = [];
 
+      const valuesOf = (idx)=> small[idx].wild ? [1,2,3,4,5,6,7,8,9] : [small[idx].val];
+
+      function findK(av, k){
+        const arr=[...av];
+        arr.sort((ia,ib)=> (valuesOf(ib)[0]||9) - (valuesOf(ia)[0]||9));
+        let res=null;
+        function dfs(st, need, sum, picked){
+          if (sum>10) return false;
+          if (need===0){ if (sum===10){ res=picked; return true; } return false; }
+          for (let i=st;i<arr.length;i++){
+            const idx=arr[i], vs=valuesOf(idx);
+            for (const v of vs){
+              if (sum+v>10) continue;
+              if (dfs(i+1, need-1, sum+v, [...picked, idx])) return true;
+            }
+          }
+          return false;
+        }
+        return dfs(0,k,0,[]) ? res : null;
+      }
+
       for (let s=0;s<small.length;s++){
         if (visited[s]) continue;
-        // 成分抽出
         const comp=[]; const q=[s]; visited[s]=true;
         while(q.length){ const v=q.shift(); comp.push(v); for (const nb of adj[v]) if(!visited[nb]){visited[nb]=true;q.push(nb);} }
         if (comp.length<2) continue;
 
         let avail = comp.slice();
         const chosenSets = [];
-
-        // 候補値（通常=固定、★=1..9）
-        const valuesOf = (idx)=> small[idx].wild ? [1,2,3,4,5,6,7,8,9] : [small[idx].val];
-
-        function findK(av, k){
-          const arr=[...av]; // index配列
-          // 陰的に大きい順に（やや剪定）
-          arr.sort((ia,ib)=> (valuesOf(ib)[0]||9) - (valuesOf(ia)[0]||9));
-          let res=null;
-          function dfs(st, need, sum, picked){
-            if (sum>10) return false;
-            if (need===0){ if (sum===10){ res=picked; return true; } return false; }
-            for (let i=st;i<arr.length;i++){
-              const idx=arr[i];
-              const vs = valuesOf(idx);
-              for (const v of vs){
-                if (sum+v>10) continue;
-                if (dfs(i+1, need-1, sum+v, [...picked, idx])) return true;
-              }
-            }
-            return false;
-          }
-          return dfs(0,k,0,[]) ? res : null;
-        }
-
         while(true){
           let picked=null;
           for (const k of [2,3,4,5,6]){ if (avail.length>=k){ const res=findK(avail,k); if (res){ picked=res; break; } } }
           if (!picked) break;
           chosenSets.push(picked);
-          const setPicked = new Set(picked);
-          avail = avail.filter(i=>!setPicked.has(i));
+          const del=new Set(picked); avail = avail.filter(i=>!del.has(i));
         }
 
         for (const picked of chosenSets){
@@ -574,10 +584,9 @@
           const cvx= chosen.reduce((a,b)=>a+b.vx,0)/chosen.length * 0.1;
           const cvy= chosen.reduce((a,b)=>a+b.vy,0)/chosen.length * 0.1;
           const h  = halfFor(10);
-          tiles.push({x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime, rot:0});
+          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime, rot:0});
           chosen.forEach(b=>toRemove.add(b.id));
           rings.push({x:cx,y:cy,t:0,col:colorBig(10)});
-          // ★が含まれていたらちょいボーナス
           const bonus = chosen.some(c=>c.wild) ? 6 : 0;
           score += 16 + 2*chosen.length + bonus;
           changed = true;
@@ -586,6 +595,7 @@
 
       if (toRemove.size){
         tiles = tiles.filter(t=>!toRemove.has(t.id));
+        tiles.push(...toAdd);
         updateHUD();
       }
     }
@@ -599,14 +609,14 @@
 
     // 外枠
     ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
-    roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
+    ctx.roundRect(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
 
     // 盤面内クリップ
     ctx.save(); ctx.beginPath();
     ctx.rect(BOARD_LEFT, BOARD_TOP, BOARD_RIGHT-BOARD_LEFT, BOARD_BOTTOM-BOARD_TOP);
     ctx.clip();
 
-    // コンベア帯（凍結中は少し青み）
+    // コンベア帯
     for (const b of BELTS) drawBelt(b.y, b.t, b.v>0?1:-1, freezeTimer>0);
 
     // 赤線
@@ -614,12 +624,13 @@
     ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke(); ctx.setLineDash([]);
 
     // ゴースト
-    const hN = halfFor(nextQ[0].val||6);
+    const ghost = nextQ[0];
+    const hN = halfFor(ghost.val||6);
     const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
-    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, nextQ[0], 0); ctx.globalAlpha=1;
+    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, ghost, 0); ctx.globalAlpha=1;
 
     // タイル
-    for (const t of tiles) drawTile(t.x,t.y,t.h,t, t.rot);
+    for (const t of tiles) drawTile(t.x,t.y,t.h,t,t.rot);
 
     // 合体リング
     for (const rr of rings){
@@ -639,7 +650,7 @@
       ctx.font='16px system-ui'; ctx.fillText('「元に戻す」または「リセット」', W/2, H*0.58);
     }
 
-    // ❄タイマー表示
+    // ❄表示
     if (freezeTimer>0){
       ctx.fillStyle='rgba(80,150,255,.16)';
       ctx.fillRect(BOARD_LEFT, BOARD_TOP, BOARD_RIGHT-BOARD_LEFT, 32);
@@ -668,12 +679,10 @@
   function drawTile(x,y,h,data,rot){
     const L = 2*h, r = Math.min(12, h*0.45);
     let base = (data.val>=10) ? colorBig(data.val) : (data.val>=1? colorSmall(data.val) : '#ddd');
-
     if (data.wild) base = 'var(--gold)';
     if (data.slow) base = 'var(--ice)';
 
     ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
-
     const g = ctx.createLinearGradient(-h, -h, h, h);
     g.addColorStop(0,'#fff'); g.addColorStop(1, base);
     ctx.fillStyle = g;
@@ -694,14 +703,7 @@
       ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font=Math.floor(h*0.55)+'px system-ui';
       ctx.fillText('1〜9', 0, -h*1.05);
     }
-
     ctx.restore();
-  }
-
-  function roundRectPath(x,y,w,h,r){
-    ctx.beginPath(); ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
   // ===== main loop =====
@@ -717,14 +719,20 @@
     draw(); requestAnimationFrame(loop);
   }
   reset(); updateHUD(); requestAnimationFrame(loop);
+
+  // 予防：未捕捉のエラーをトースト表示（デバッグ支援）
+  window.addEventListener('error', (e)=>{
+    console.error(e.error||e.message);
+    toast('エラー: '+(e.message||'unknown'));
+  });
 })();
 </script>
 
-<!-- Service Worker（オフライン対応・動的生成） -->
+<!-- Service Worker（オフライン対応・動的生成：キャッシュ名をv44に更新） -->
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v43-sqbelt-special';
+    const CACHE='10game-decamerge-v44-stable';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
