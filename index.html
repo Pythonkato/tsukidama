@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares / Plus Only) v3.6</title>
+<title>10 Game — DecaMerge (Squares + Belts, Fix) v4.1</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,7 +12,7 @@
 <!-- Manifest (inline) -->
 <script type="application/manifest+json">
 {
-  "name": "10 Game — DecaMerge (Squares)",
+  "name": "10 Game — DecaMerge (Squares + Belts)",
   "short_name": "10 Game",
   "start_url": ".",
   "display": "standalone",
@@ -76,7 +76,7 @@
   <header>
     <div class="brand">
       <div class="ttl">10 Game</div>
-      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角・シンプル）</div>
+      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア／改）</div>
     </div>
     <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
@@ -105,14 +105,14 @@
 <!-- How-to -->
 <div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
-    <h3>🎮 遊び方（10 Game - DecaMerge / Squares, Plus Only）</h3>
+    <h3>🎮 遊び方（Squares + Belts / Fix）</h3>
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせ、<strong>指を離す</strong>と投入。</li>
-      <li><strong>1〜9</strong>が<strong>隣り合ったグループ</strong>の中で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
+      <li><strong>1〜9</strong>が<strong>隣り合うグループ</strong>で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
       <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が軽く重なったら<strong>倍々合体</strong>。</li>
+      <li>盤面には<strong>コンベア帯</strong>（自動で左右に流れる）と弱い<strong>そよ風</strong>があります。</li>
       <li>赤線より上に一定時間あると<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
     </ol>
-    <p style="color:var(--muted);font-size:13px">ヒントONで各小タイルに「10まであといくつ」を表示。</p>
     <div class="actions">
       <button class="btn ghost" id="closeHelp">閉じる</button>
       <button class="btn strong" id="okHelp">OK</button>
@@ -149,25 +149,36 @@
   }
   addEventListener('resize', fit); fit();
 
-  // ===== constants (field & physics) =====
+  // ===== field & physics =====
   const W = cv.width, H = cv.height;
   const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80; // 赤線
-  const DT = 1/60;
-  const G = 1850;                 // 重力：積み上がりやすく
-  const AIR_FRICTION = 0.975;     // 減衰強め → 止まりやすい
-  const REST_FLOOR = 0.08;        // 低反発
+  const BOARD_TOP = 6, BOARD_LEFT = LEFT, BOARD_RIGHT = RIGHT, BOARD_BOTTOM = FLOOR;
+
+  const DT = 1/60, SUBSTEPS = 3, ITER = 3; // ★ 追加：サブステップ＆反復解決
+  const G = 1850;
+  const AIR_FRICTION = 0.975;
+  const REST_FLOOR = 0.08;
   const REST_WALL  = 0.10;
-  const REST_N     = 0.05;        // タイル同士の反発（小）
+  const REST_N     = 0.05;
   const VX_MAX = 980, VY_MAX = 2600;
   const MAX_TILES  = 95;
+  const ROT_MAX = 0.11; // ★回転角（±約6.3°に制限）
+
+  // --- Conveyor belts ---
+  const BELTS = [
+    { y: 200, t: 12, v: +160 },
+    { y: 340, t: 12, v: -160 },
+    { y: 480, t: 12, v: +180 },
+  ];
+  const BREEZE = { amp: 110, speed: 0.7 };
 
   // ===== game state =====
-  /** @type {{x:number,y:number,vx:number,vy:number,h:number,val:number,id:number,m:number,born:number}[]} */
+  /** @type {{x:number,y:number,vx:number,vy:number,h:number,val:number,id:number,m:number,born:number,rot:number}[]} */
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
   let aimX = (LEFT+RIGHT)/2;
   let nextQ = [randSmall(), randSmall()];
-  let showHint = false; // 初期OFFでシンプルに
+  let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
 
@@ -190,15 +201,13 @@
     return CSS('--b10');
   }
 
-  // === 面積比（四角）：辺長 L = L10 * √(value/10) / 半辺 h を返す ===
-  const L10 = 56, LMAX = 120; // 10の辺長 / 上限
+  const L10 = 56, LMAX = 120;
   function halfFor(val){
     const L = Math.min(L10 * Math.sqrt(Math.max(val,1)/10), LMAX);
     return L/2;
   }
-  function massFor(h){ const L=2*h; return L*L; } // 面積＝質量
+  function massFor(h){ const L=2*h; return L*L; }
 
-  // 生成分布（やや高数値寄りでテンポUP）
   function randSmall(){
     const r = Math.random();
     if (r<0.06) return 1;
@@ -214,9 +223,9 @@
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_plus')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_plus', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_plus')||0;
+    const best = +(localStorage.getItem('decamerge_best_sq_belt_fix')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_belt_fix', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_fix')||0;
     nextAEl.textContent = nextQ[0];
     nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
@@ -235,7 +244,7 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqplus')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqplus','1'); }
+  if (!localStorage.getItem('decamerge_seen_help_sqbelt_fix')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_fix','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -278,13 +287,12 @@
     updateHUD();
   }
   function snapshot(){
-    return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born})),
+    return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born,rot:t.rot})),
              rings: rings.map(r=>({...r})),
              score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
   }
   function restore(s){
-    tiles = s.tiles.map(t=>({...t}));
-    rings = s.rings.map(r=>({...r}));
+    tiles = s.tiles.map(t=>({...t})); rings = s.rings.map(r=>({...r}));
     score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
     gameTime=s.gameTime; updateHUD();
   }
@@ -296,76 +304,119 @@
     const val = nextQ.shift(); nextQ.push(randSmall());
     const h = halfFor(val);
     const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
-    tiles.push({x, y: CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime});
+    tiles.push({x, y: CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime, rot:0});
     score += val; cooldown = .18; updateHUD();
   }
 
-  // ===== physics (AABB squares) =====
-  function step(dt){
-    gameTime += dt;
-    cooldown = Math.max(0, cooldown-dt);
+  // ===== physics helpers =====
+  const CONTACT_TOL_SMALL = 7;
+  const BIG_OVERLAP_PIX   = 1;
+  const BOUND_SLOP = 0.5;
 
-    for (const t of tiles){
-      t.vy += G*dt;
-      t.vx *= AIR_FRICTION; t.vy *= AIR_FRICTION;
-      t.vx = clamp(t.vx, -VX_MAX, VX_MAX);
-      t.vy = clamp(t.vy, -VY_MAX, VY_MAX);
-      t.x  += t.vx*dt;  t.y  += t.vy*dt;
-
-      // Walls
-      if (t.x - t.h < LEFT){ t.x = LEFT + t.h; t.vx = -Math.abs(t.vx)*REST_WALL; }
-      if (t.x + t.h > RIGHT){ t.x = RIGHT - t.h; t.vx =  Math.abs(t.vx)*(-REST_WALL); }
-
-      // Floor
-      if (t.y + t.h > FLOOR){
-        t.y = FLOOR - t.h;
-        if (Math.abs(t.vy) < 40) t.vy = 0; else t.vy = -t.vy * REST_FLOOR;
-        if (t.vy === 0){ t.vx *= 0.945; if (Math.abs(t.vx)<6) t.vx = 0; }
-      }
+  function keepInside(t){
+    if (t.x - t.h < LEFT+BOUND_SLOP){ t.x = LEFT+BOUND_SLOP + t.h; t.vx = Math.max(t.vx,0)*(-REST_WALL); }
+    if (t.x + t.h > RIGHT-BOUND_SLOP){ t.x = RIGHT-BOUND_SLOP - t.h; t.vx = -Math.max(-t.vx,0)*REST_WALL; }
+    if (t.y + t.h > FLOOR-BOUND_SLOP){
+      t.y = FLOOR-BOUND_SLOP - t.h;
+      if (Math.abs(t.vy) < 40) t.vy = 0; else t.vy = -t.vy * REST_FLOOR;
+      if (t.vy === 0){ t.vx *= 0.945; if (Math.abs(t.vx)<6) t.vx = 0; }
     }
+    if (t.y - t.h < BOARD_TOP+2) { t.y = BOARD_TOP+2 + t.h; t.vy = Math.max(t.vy,0); } // ほぼ不要だが保険
+  }
 
-    // タイル同士の衝突（質量比例で解決・低反発）
-    for (let i=0;i<tiles.length;i++){
-      for (let j=i+1;j<tiles.length;j++){
-        const A=tiles[i], B=tiles[j];
-        const dx=B.x-A.x, dy=B.y-A.y;
-        const overlapX = (A.h+B.h) - Math.abs(dx);
-        const overlapY = (A.h+B.h) - Math.abs(dy);
-        if (overlapX>0 && overlapY>0){
-          if (overlapX < overlapY){
-            const nx = dx<0 ? -1 : 1;
-            const imA = 1/A.m, imB = 1/B.m, inv=imA+imB;
-            const pushA = (imA/inv)*overlapX, pushB = (imB/inv)*overlapX;
-            A.x -= nx*pushA; B.x += nx*pushB;
-            const rvx = B.vx - A.vx, vn = rvx*nx;
-            if (vn<0){
-              const j = -(1+REST_N)*vn / (imA+imB);
-              A.vx -= j*nx*imA; B.vx += j*nx*imB;
-            }
-          }else{
-            const ny = dy<0 ? -1 : 1;
-            const imA = 1/A.m, imB = 1/B.m, inv=imA+imB;
-            const pushA = (imA/inv)*overlapY, pushB = (imB/inv)*overlapY;
-            A.y -= ny*pushA; B.y += ny*pushB;
-            const rvy = B.vy - A.vy, vn = rvy*ny;
-            if (vn<0){
-              const j = -(1+REST_N)*vn / (imA+imB);
-              A.vy -= j*ny*imA; B.vy += j*ny*imB;
+  function resolvePairs(){
+    for (let it=0; it<ITER; it++){
+      for (let i=0;i<tiles.length;i++){
+        for (let j=i+1;j<tiles.length;j++){
+          const A=tiles[i], B=tiles[j];
+          const dx=B.x-A.x, dy=B.y-A.y;
+          const overlapX = (A.h+B.h) - Math.abs(dx);
+          const overlapY = (A.h+B.h) - Math.abs(dy);
+          if (overlapX>0 && overlapY>0){
+            if (overlapX < overlapY){
+              const nx = dx<0 ? -1 : 1;
+              const imA = 1/A.m, imB = 1/B.m, inv = imA+imB;
+              const pushA=(imA/inv)*overlapX, pushB=(imB/inv)*overlapX;
+              A.x -= nx*pushA; B.x += nx*pushB;
+              const rvx=B.vx-A.vx, vn=rvx*nx;
+              if (vn<0){
+                const j = -(1+REST_N)*vn / (imA+imB);
+                A.vx -= j*nx*imA; B.vx += j*nx*imB;
+              }
+            }else{
+              const ny = dy<0 ? -1 : 1;
+              const imA = 1/A.m, imB = 1/B.m, inv = imA+imB;
+              const pushA=(imA/inv)*overlapY, pushB=(imB/inv)*overlapY;
+              A.y -= ny*pushA; B.y += ny*pushB;
+              const rvy=B.vy-A.vy, vn=rvy*ny;
+              if (vn<0){
+                const j = -(1+REST_N)*vn / (imA+imB);
+                A.vy -= j*ny*imA; B.vy += j*ny*imB;
+              }
             }
           }
         }
       }
+      // 反復ごとに境界クランプ
+      for (const t of tiles) keepInside(t);
     }
+  }
+
+  function relaxWorld(times=3){ for(let i=0;i<times;i++) resolvePairs(); }
+
+  // ===== physics step =====
+  function step(dt){
+    gameTime += dt;
+    cooldown = Math.max(0, cooldown-dt);
+
+    const breeze = BREEZE.amp * Math.sin(gameTime*BREEZE.speed);
+
+    // 速度→位置
+    for (const t of tiles){
+      t.vy += G*dt;
+      // コンベア帯
+      const bottom = t.y + t.h;
+      for (const b of BELTS){
+        if (bottom > b.y - b.t && bottom < b.y + b.t){
+          t.vx += b.v * dt * 0.9; t.vx *= 0.992;
+        }
+      }
+      // そよ風
+      t.vx += breeze * dt * 0.12;
+
+      // 空気抵抗
+      t.vx *= AIR_FRICTION; t.vy *= AIR_FRICTION;
+
+      // クランプ
+      t.vx = clamp(t.vx, -VX_MAX, VX_MAX);
+      t.vy = clamp(t.vy, -VY_MAX, VY_MAX);
+
+      // 積分
+      t.x += t.vx*dt; t.y += t.vy*dt;
+
+      // 壁・床
+      keepInside(t);
+
+      // 見た目の軽回転（角のはみ出しを抑えるため小さめ）
+      const target = clamp(t.vx/620, -ROT_MAX, ROT_MAX);
+      t.rot += (target - t.rot) * 0.12;
+    }
+
+    // ★ 反復衝突解決
+    resolvePairs();
 
     // 合体（複数パスで収束）
     let changed, pass=0;
     do{ changed = tryMerges(); pass++; } while(changed && pass<16);
 
+    // ★ 合体直後のリラックス（重なり残り解消）
+    if (changed) relaxWorld(4);
+
     // FX
     for (const r of rings){ r.t += dt; }
     rings = rings.filter(r=>r.t<0.9);
 
-    // === 赤線ゲームオーバー（位置のみ／年齢ゲート） ===
+    // 赤線ゲームオーバー（位置のみ）
     const AGE_SAFE = 0.45, MARGIN = 1;
     let danger=false;
     for (const t of tiles){
@@ -378,9 +429,6 @@
   }
 
   // ===== merging rules =====
-  const CONTACT_TOL_SMALL = 7;  // 小タイルの隣接許容（ゆるめ）
-  const BIG_OVERLAP_PIX   = 1;  // 大タイル重なり閾値
-
   function touchingSmall(a,b){
     const dx=Math.abs(b.x-a.x), dy=Math.abs(b.y-a.y);
     return dx <= (a.h + b.h + CONTACT_TOL_SMALL) && dy <= (a.h + b.h + CONTACT_TOL_SMALL);
@@ -394,7 +442,7 @@
   function tryMerges(){
     let changed=false;
 
-    // --- 大タイル：同値倍化 ---
+    // 大タイル：同値どうしで倍化
     const removedBig = new Set();
     for (let i=0;i<tiles.length;i++){
       const A=tiles[i]; if (A.val<10 || removedBig.has(A.id)) continue;
@@ -403,7 +451,7 @@
         if (A.val===B.val && overlappingBig(A,B)){
           const out=A.val*2, nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
           const h=halfFor(out), vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
-          tiles.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime});
+          tiles.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime, rot:(A.rot+B.rot)/2});
           removedBig.add(A.id); removedBig.add(B.id);
           rings.push({x:nx,y:ny,t:0,col:colorBig(out)});
           score += Math.max(30,out);
@@ -413,7 +461,7 @@
     }
     if (removedBig.size){ tiles = tiles.filter(t=>!removedBig.has(t.id)); updateHUD(); }
 
-    // --- 小タイル：合計=10（2〜6個、同フレーム複数） ---
+    // 小タイル：合計=10（2〜6個、同フレーム複数）
     const small = tiles.filter(t=>t.val<10);
     if (small.length){
       const adj = small.map(()=>[]);
@@ -471,7 +519,7 @@
           const cvx= chosen.reduce((a,b)=>a+b.vx,0)/chosen.length * 0.1;
           const cvy= chosen.reduce((a,b)=>a+b.vy,0)/chosen.length * 0.1;
           const h  = halfFor(10);
-          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime});
+          toAdd.push({x:cx,y:cy,vx:cvx,vy:cvy,h,val:10,id:idSeq++, m:massFor(h), born:gameTime, rot:0});
           chosen.forEach(b=>toRemove.add(b.id));
           rings.push({x:cx,y:cy,t:0,col:colorBig(10)});
           score += 16 + 2*chosen.length;
@@ -489,25 +537,36 @@
     return changed;
   }
 
-  // ===== render =====
+  // ===== rendering =====
   function draw(){
     ctx.clearRect(0,0,W,H);
-    // frame
+
+    // 外枠
     ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
     roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
-    // red line
+
+    // 盤面内クリップ ★はみ出し描画防止
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(BOARD_LEFT, BOARD_TOP, BOARD_RIGHT-BOARD_LEFT, BOARD_BOTTOM-BOARD_TOP);
+    ctx.clip();
+
+    // コンベア帯
+    for (const b of BELTS) drawBelt(b.y, b.t, b.v>0?1:-1);
+
+    // 赤線
     ctx.strokeStyle = 'rgba(226,78,82,.65)';
     ctx.setLineDash([6,4]); ctx.beginPath(); ctx.moveTo(LEFT, CEIL); ctx.lineTo(RIGHT, CEIL); ctx.stroke(); ctx.setLineDash([]);
 
-    // ghost (next)
+    // ゴースト
     const hN = halfFor(nextQ[0]);
     const ax = clamp(aimX, LEFT+hN+1, RIGHT-hN-1);
-    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, nextQ[0]); ctx.globalAlpha=1;
+    ctx.globalAlpha=.28; drawTile(ax, CEIL-28, hN, nextQ[0], 0); ctx.globalAlpha=1;
 
-    // tiles
-    for (const t of tiles) drawTile(t.x,t.y,t.h,t.val);
+    // タイル
+    for (const t of tiles) drawTile(t.x,t.y,t.h,t.val,t.rot);
 
-    // rings
+    // 合体リング
     for (const rr of rings){
       ctx.globalAlpha = Math.max(0, 1 - rr.t*1.1);
       ctx.strokeStyle = rr.col; ctx.lineWidth = 3;
@@ -515,6 +574,8 @@
       ctx.beginPath(); ctx.roundRect(rr.x - r, rr.y - r, r*2, r*2, 10); ctx.stroke();
       ctx.globalAlpha = 1;
     }
+
+    ctx.restore(); // クリップ解除
 
     if (over){
       ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.fillRect(0,0,W,H);
@@ -524,21 +585,39 @@
     }
   }
 
-  function drawTile(x,y,h,val){
+  function drawBelt(y, t, dir){
+    ctx.fillStyle = 'rgba(234,229,218,0.55)';
+    ctx.fillRect(LEFT+1, y-t, RIGHT-LEFT-2, t*2);
+    ctx.save(); ctx.translate(0, y);
+    ctx.fillStyle = 'rgba(0,0,0,0.08)';
+    for (let x=LEFT+10; x<RIGHT-10; x+=30){
+      ctx.beginPath();
+      if (dir>0){ ctx.moveTo(x-6, -4); ctx.lineTo(x+6, 0); ctx.lineTo(x-6, 4); }
+      else       { ctx.moveTo(x+6, -4); ctx.lineTo(x-6, 0); ctx.lineTo(x+6, 4); }
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawTile(x,y,h,val,rot){
     const L = 2*h, r = Math.min(12, h*0.45);
     const base = val<10 ? colorSmall(val) : colorBig(val);
-    const g = ctx.createLinearGradient(x-h, y-h, x+h, y+h);
+
+    ctx.save(); ctx.translate(x,y); ctx.rotate(rot||0);
+
+    const g = ctx.createLinearGradient(-h, -h, h, h);
     g.addColorStop(0,'#fff'); g.addColorStop(1, base);
     ctx.fillStyle = g;
-    ctx.beginPath(); ctx.roundRect(x-h, y-h, L, L, r); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(-h, -h, L, L, r); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
 
     ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.font = 'bold '+Math.floor(h*1.2)+'px system-ui'; ctx.fillText(val, x, y+1);
+    ctx.font = 'bold '+Math.floor(h*1.2)+'px system-ui'; ctx.fillText(val, 0, 1);
     if (showHint && val<10){
       ctx.fillStyle='rgba(0,0,0,.35)'; ctx.font=Math.floor(h*0.6)+'px system-ui';
-      ctx.fillText(10-val, x, y - h*1.1);
+      ctx.fillText(10-val, 0, -h*1.1);
     }
+    ctx.restore();
   }
 
   function roundRectPath(x,y,w,h,r){
@@ -547,12 +626,16 @@
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
-  // ===== loop =====
+  // ===== main loop（SUBSTEPS） =====
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1300); }
   let acc=0, last=performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now; acc += dt;
-    while(acc>DT){ step(DT); acc-=DT; }
+    while(acc>DT){
+      const sdt = DT/SUBSTEPS;
+      for (let k=0;k<SUBSTEPS;k++) step(sdt);
+      acc -= DT;
+    }
     draw(); requestAnimationFrame(loop);
   }
   reset(); updateHUD(); requestAnimationFrame(loop);
@@ -563,7 +646,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v36-sqplus';
+    const CACHE='10game-decamerge-v41-sqbelt-fix';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
