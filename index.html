@@ -295,9 +295,13 @@
     let w = danger ? [0.12,0.13,0.14,0.14,0.14,0.13,0.10,0.06,0.04]
                    : [0.10,0.12,0.14,0.15,0.15,0.14,0.10,0.06,0.04];
 
-    // ★ 変更点：ゲーム終盤（盤面に160以上の大タイルが存在）では7/8/9の確率を低下
-    // 高数(7,8,9)を50%に抑え、その分を1〜6へ均等再配分（合計=1を維持）
-    if (tiles.some(t => t.val >= 160)) {
+    // ★ 終盤判定：tiles が未初期化でも落ちないようにガード
+    const hasBig = (typeof tiles !== 'undefined') &&
+                   Array.isArray(tiles) &&
+                   tiles.some(t => t && ((t.val|0) >= 160));
+
+    // 終盤は 7/8/9 の確率を 50% に抑え、差分を 1〜6 に均等再配分
+    if (hasBig) {
       const scale = 0.5;
       const removed = (w[6] + w[7] + w[8]) * (1 - scale);
       w[6] *= scale; w[7] *= scale; w[8] *= scale;
@@ -609,7 +613,7 @@
     ctx.clearRect(0,0,W,H);
 
     // 外枠
-    ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
+    ctx.strokeStyle = 'var(--line)'; ctx.lineWidth = 2;
     roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
 
     // 盤面内クリップ
