@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Baseball – 普通の野球×足し算</title>
+<title>10 Baseball – 普通の野球×足し算（強化版）</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
 <style>
   :root{
     --bg:#F4F1EA; --paper:#FFFFFF; --ink:#131313; --muted:#6D7280; --line:#E5DED2; --chip:#FBF8F2;
@@ -26,10 +25,12 @@
   .sub{color:var(--muted);font-size:12px;letter-spacing:.04em}
   .chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .chip{background:var(--chip);border:1px solid var(--line);padding:8px 10px;border-radius:12px;font-weight:700}
+  .btn{border:1px solid var(--line);padding:8px 12px;border-radius:12px;background:#fff;font-weight:700}
+  .btn.strong{border-color:transparent;background:#111;color:#fff}
+  .btn.ghost{background:#fff}
 
   #stage{flex:1;display:flex;align-items:center;justify-content:center;padding:14px}
   canvas{touch-action:none;background:var(--paper);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.06)}
-
   footer{padding:10px 14px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;text-align:center}
 
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
@@ -62,9 +63,6 @@
   #help ol{padding-left:1.1em;line-height:1.6}
   #help li{margin:.35em 0}
   #help .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-  .btn{border:1px solid var(--line);padding:8px 12px;border-radius:12px;background:#fff;font-weight:700}
-  .btn.strong{border-color:transparent;background:#111;color:#fff}
-  .btn.ghost{background:#fff}
 </style>
 </head>
 <body>
@@ -72,7 +70,7 @@
   <header>
     <div class="brand">
       <div class="ttl">10 Baseball</div>
-      <div class="sub">普通の野球 × 足し算（10にしよう！）</div>
+      <div class="sub">普通の野球 × 足し算（10でスイング！）</div>
     </div>
     <div class="chips">
       <div class="chip">Inning: <b id="inning">1</b></div>
@@ -89,10 +87,9 @@
   </div>
 
   <footer>
-    ピッチャーが<b>数字ボール（1〜9）</b>を投げます。<br>
-    右の<b>数字パッド</b>（またはキーボード<b>1〜9</b>）で<b>スイング</b>！<br>
-    押した数字＋ボールの数字が<b>10</b>で<b>当たり</b>。タイミングで<b>単打/二塁打/HR</b>に！<br>
-    見逃しは<b>ボール or ストライク</b>。<b>4ボール</b>で四球、<b>3ストライク</b>で三振アウト。
+    ピッチャーが<b>数字ボール（1〜9）</b>を投げます。右の<b>数字パッド</b>（またはキーボード<b>1〜9</b>）で<b>スイング</b>！<br>
+    押した数＋ボールの数が<b>10</b>でヒット。タイミングと当たりで<b>内野ゴロ/ヒット/2塁打/3塁打/HR</b>の演出が変わります。<br>
+    ストレートのストライクを増量。バットの弧と半径を調整し、球との距離感を改善しました。
   </footer>
 </div>
 
@@ -116,9 +113,9 @@
     <ol>
       <li>ボール（1〜9）が<b>ピッチャー</b>から<b>ホームベース</b>へ飛んできます。</li>
       <li>右の<b>数字パッド</b>か<b>キーボード1〜9</b>で<b>スイング</b>します。</li>
-      <li><b>ボールの数＋押した数＝10</b>なら<b>打球</b>！タイミングで<b>シングル/ツーベース/ホームラン</b>。</li>
-      <li>合わない/タイミング悪い → <b>空振り</b>（ストライク）。見逃しは<b>ボール/ストライク</b>を自動判定。</li>
-      <li><b>4ボール</b>で四球進塁、<b>3ストライク</b>で三振。ランナー/得点/イニングは本物の野球ルール。</li>
+      <li><b>ボールの数＋押した数＝10</b>かつ、バットとボールが接触すると<b>打球</b>に！</li>
+      <li>当たり具合で<b>内野ゴロ/ヒット/2塁打/3塁打/ホームラン</b>を演出し、走者/得点を反映します。</li>
+      <li>見逃しは<b>ボール or ストライク</b>。<b>4ボール</b>で四球、<b>3ストライク</b>で三振。</li>
     </ol>
     <div class="actions">
       <button class="btn ghost" id="closeHelp">閉じる</button>
@@ -158,22 +155,36 @@
   }
   addEventListener('resize', fit); fit();
 
-  // ===== world & ui =====
+  // ===== world =====
   const W = cv.width, H = cv.height;
   const LEFT = 18, RIGHT = W-18, FLOOR = H-14, CEIL = 70;
   const PLATE_X = W/2, PLATE_Y = H-120;
-  const STRIKE_W = 90, STRIKE_H = 120;  // ストライクゾーン
+  const STRIKE_W = 86, STRIKE_H = 122;  // 少し調整
 
-  // 状態
+  // バット（視覚＋当たり）：カプセル
+  const BAT = {
+    cx: PLATE_X,
+    cy: PLATE_Y + 8,      // 少し下げて距離感を確保
+    R: 90,                // 弧半径（以前より大きくして“離す”）
+    start: -1.0,          // スタート角（後ろ）
+    end: 0.15,            // 終端角（前）
+    t: 0, DUR: 0.16,      // スイング時間
+    cd: 0, COOLDOWN: 0.18,
+    headR: 15,            // 先端太さ
+    shaftR: 8,            // グリップ太さ
+    len: 110,             // バットの見た目長
+    activeDigit: 0,       // 押した数字（スイング中のみ有効）
+    hitLock: false        // 同一投球での多重ヒット防止
+  };
+
+  // スコア・ランナー
   let inning=1, balls=0, strikes=0, outs=0, runs=0, score=0;
   let bases = { first:false, second:false, third:false };
 
-  // ピッチ
-  let pitch=null; // {x,y,vx,vy, num, inZone, alive, tToPlate}
-  let nextPitchTimer = 0.6; // 次の投球まで
-
-  // バット演出
-  const BAT = { r:18, arc:{start:-0.6,end:0.4}, swingT:0, DUR:0.16, cd:0, COOLDOWN:0.18 };
+  // ピッチ（現行）と飛球（演出）
+  let pitch=null; // {x,y,vx,vy,num,inZone,alive}
+  let fly=null;   // {x,y,vx,vy,ax,ay,type,t,trail:[]}
+  let nextPitchTimer = 0.5;
 
   // ===== helpers =====
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
@@ -181,33 +192,30 @@
   function updateHUD(){
     inningEl.textContent=inning; ballsEl.textContent=balls; strikesEl.textContent=strikes; outsEl.textContent=outs;
     runsEl.textContent=runs; scoreEl.textContent=score;
-    const best = +(localStorage.getItem('tenbase_best')||0);
-    if (score>best) localStorage.setItem('tenbase_best', score|0);
-    bestEl.textContent = localStorage.getItem('tenbase_best')||0;
+    const best = +(localStorage.getItem('tenbase_best_v2')||0);
+    if (score>best) localStorage.setItem('tenbase_best_v2', score|0);
+    bestEl.textContent = localStorage.getItem('tenbase_best_v2')||0;
   }
   function resetGame(){
     inning=1; balls=0; strikes=0; outs=0; runs=0; score=0;
     bases.first=bases.second=bases.third=false;
-    pitch=null; nextPitchTimer=0.6;
+    pitch=null; fly=null; nextPitchTimer=0.6;
+    BAT.t=0; BAT.cd=0; BAT.activeDigit=0; BAT.hitLock=false;
     updateHUD();
   }
 
-  // ===== baseball logic =====
+  // ===== 野球ルール適用 =====
   function walkAdvance(){
-    // 四球：一塁が空なら打者が一塁、埋まっていれば押し出し
     if (bases.first && bases.second && bases.third) { runs++; toast('押し出し！'); }
     const newThird = (bases.second && bases.first) ? true : bases.third;
     const newSecond= bases.first ? true : bases.second;
-    const newFirst = true;
-    bases.first=newFirst; bases.second=newSecond; bases.third=newThird;
+    bases.first=true; bases.second=newSecond; bases.third=newThird;
   }
-
   function single(){
-    if (bases.third) { runs++; }
+    if (bases.third) runs++;
     const newThird = bases.second;
     const newSecond= bases.first;
-    const newFirst = true;
-    bases.first=newFirst; bases.second=newSecond; bases.third=newThird;
+    bases.first=true; bases.second=newSecond; bases.third=newThird;
     score += 10; balls=0; strikes=0;
   }
   function doubleHit(){
@@ -217,10 +225,16 @@
     bases.first=false; bases.second=true; bases.third=newThird;
     score += 20; balls=0; strikes=0;
   }
+  function tripleHit(){
+    let add=0; if (bases.third) add++; if (bases.second) add++; if (bases.first) add++;
+    runs += add;
+    bases.first=false; bases.second=false; bases.third=true;
+    score += 35; balls=0; strikes=0;
+  }
   function homerun(){
     let add = 1 + (bases.first?1:0) + (bases.second?1:0) + (bases.third?1:0);
     runs += add; bases.first=bases.second=bases.third=false;
-    score += 50; balls=0; strikes=0;
+    score += 60; balls=0; strikes=0;
   }
   function out(){
     strikes=0; balls=0; outs++;
@@ -232,106 +246,173 @@
     }
   }
 
-  // ===== pitch engine =====
+  // ===== ピッチ生成（ストレート増） =====
   function spawnPitch(){
     const num = 1 + (Math.random()*9|0);
-    const inZone = Math.random()<0.68; // ストライク率
-    const startX = PLATE_X + (Math.random()*120 - 60);
-    const startY = CEIL+4;
-    const timeToPlate = 1.05 + Math.random()*0.35;
+    const inZone = Math.random()<0.82; // ★ ストライク率を高める
+    const straight = inZone && Math.random()<0.75; // ★ まっすぐ中心
+    const startX = PLATE_X + (straight ? (Math.random()*20-10) : (Math.random()*120 - 60));
+    const startY = CEIL+6;
+    const timeToPlate = 0.95 + Math.random()*0.28;
     const targetX = inZone
-      ? PLATE_X + (Math.random()* (STRIKE_W*0.4) - STRIKE_W*0.2)
-      : PLATE_X + (Math.random()<0.5 ? -1 : 1) * (STRIKE_W*0.8 + Math.random()*60);
-    const targetY = PLATE_Y;
+      ? (straight ? PLATE_X : PLATE_X + (Math.random()* (STRIKE_W*0.35) - STRIKE_W*0.175))
+      : PLATE_X + (Math.random()<0.5 ? -1 : 1) * (STRIKE_W*0.9 + Math.random()*70);
+    const targetY = PLATE_Y - 6;
     const vx = (targetX - startX)/timeToPlate;
     const vy = (targetY - startY)/timeToPlate;
-    pitch = {x:startX, y:startY, vx, vy, num, inZone, alive:true, tToPlate:timeToPlate};
+    pitch = {x:startX, y:startY, vx, vy, num, inZone, alive:true};
+    BAT.hitLock=false; // 次の球で解放
+    BAT.activeDigit=0;
   }
 
-  function endPitch(){
+  function endPitch(autoJudge=true){
+    if (autoJudge && pitch){
+      // 見逃し判定
+      if (pitch.inZone){
+        strikes++; toast('見逃しストライク');
+        if (strikes>=3){ out(); }
+      }else{
+        balls++; toast('ボール');
+        if (balls>=4){ walkAdvance(); balls=0; strikes=0; toast('フォアボール'); }
+      }
+    }
     pitch = null;
-    nextPitchTimer = 0.9 + Math.random()*0.7;
-    BAT.swingT = 0; // アニメ終了
+    nextPitchTimer = 0.85 + Math.random()*0.6;
+    BAT.t=0; BAT.activeDigit=0;
   }
 
-  // ===== swing (number) =====
-  function timingGrade(dist){
-    // dist(px) from plateY at押下時
-    if (dist<=6) return 'perfect';
-    if (dist<=16) return 'good';
-    if (dist<=28) return 'fair';
-    return 'miss';
+  // ===== バット形状（カプセル）・姿勢 =====
+  function batAngle(){
+    const t = BAT.DUR>0 ? clamp(1 - BAT.t/BAT.DUR, 0, 1) : 0;
+    const k = 1 - Math.pow(1-t, 2); // ease-out
+    return BAT.start + (BAT.end - BAT.start)*k;
   }
-  function swingWith(n){
-    // バット演出
-    if (BAT.cd<=0){ BAT.swingT = BAT.DUR; BAT.cd = BAT.COOLDOWN; }
-    if (!pitch || !pitch.alive) return;
-
-    const d = Math.abs(pitch.y - PLATE_Y);
-    const grade = timingGrade(d);
-    const sum = n + pitch.num;
-    if (grade==='miss'){
-      // 早すぎ/遅すぎ → 空振り
-      strikes++; toast('空振り…');
-      if (strikes>=3){ out(); }
-      endPitch(); updateHUD(); return;
-    }
-
-    if (sum===10){
-      // 当たり！ 角度・飛距離相当をタイミングで
-      if (grade==='perfect'){ homerun(); toast('ホームラン！'); }
-      else if (grade==='good'){ doubleHit(); toast('ツーベース！'); }
-      else { single(); toast('ヒット！'); }
-      endPitch(); updateHUD(); return;
-    }
-
-    // 10から±1でタイミング良 → ファウル（2ストライク以降は増えない）
-    if (Math.abs(10 - sum)===1 && (grade==='perfect' || grade==='good' || grade==='fair')){
-      if (strikes<2){ strikes++; }
-      toast('ファウル');
-      endPitch(); updateHUD(); return;
-    }
-
-    // 外し → 空振り
-    strikes++; toast('空振り…');
-    if (strikes>=3){ out(); }
-    endPitch(); updateHUD();
+  function batSegment(){
+    // グリップ→先端の線分（カプセル）
+    const ang = batAngle();
+    const gx = BAT.cx + Math.cos(ang) * (BAT.R - 32);
+    const gy = BAT.cy + Math.sin(ang) * (BAT.R - 32);
+    const hx = BAT.cx + Math.cos(ang) * (BAT.R + 78);
+    const hy = BAT.cy + Math.sin(ang) * (BAT.R + 78);
+    return {gx,gy,hx,hy,ang};
+  }
+  function pointSegDist(px,py, ax,ay, bx,by){
+    const vx=bx-ax, vy=by-ay;
+    const wx=px-ax, wy=py-ay;
+    const c1 = vx*wx + vy*wy;
+    if (c1<=0) return Math.hypot(px-ax, py-ay);
+    const c2 = vx*vx + vy*vy;
+    if (c2<=c1) return Math.hypot(px-bx, py-by);
+    const t = c1/c2;
+    const projx = ax + t*vx, projy = ay + t*vy;
+    return Math.hypot(px-projx, py-projy);
   }
 
-  // ===== input wiring =====
+  // ===== 打撃判定＆飛球生成 =====
+  function tryHit(){
+    if (!pitch || !pitch.alive || BAT.hitLock || BAT.activeDigit===0) return;
+    // 合計が10でなければ当たってもヒットしない
+    if (BAT.activeDigit + pitch.num !== 10) return;
+
+    // バット（カプセル）と球（円）の当たり
+    const {gx,gy,hx,hy,ang} = batSegment();
+    const dist = pointSegDist(pitch.x, pitch.y, gx,gy, hx,hy);
+    const capR = BAT.headR; // カプセル半径に近い値
+    const ballR = 18;
+    if (dist <= capR + ballR){
+      // 接触：打球へ
+      BAT.hitLock = true;
+
+      // バットの接線方向（角速度から）
+      const w = Math.abs(BAT.end - BAT.start) / BAT.DUR;   // 角速度（概算）
+      const tx = -Math.sin(ang), ty =  Math.cos(ang);      // 接線の向き（前方）
+      const batSpeed = w * (BAT.R + 60);                   // 先端スピード概算
+      const impact = 380 + batSpeed * 0.55;                // 基本インパクト
+
+      // タイミング（プレート近さ）
+      const dPlate = Math.abs(pitch.y - (PLATE_Y - 4));
+      let timing = 1.0;
+      if (dPlate <= 6) timing = 1.3;
+      else if (dPlate <= 16) timing = 1.1;
+      else if (dPlate <= 28) timing = 0.95;
+      else timing = 0.7;
+
+      // 打ち出し速度
+      let vx = tx * impact * timing;
+      let vy = ty * impact * timing * -0.55; // 画面上方向へ（yは下が+）
+      // 少し左右ブレ
+      vx += (Math.random()*60 - 30);
+
+      // 種別判定（速度と角度）
+      const V = Math.hypot(vx, vy);
+      const elevDeg = Math.atan2(-vy, vx) * 180/Math.PI; // 上向きが正
+      let type='single';
+      if (V < 520 || elevDeg < -10) type='grounder';
+      else if (V < 760 || elevDeg < 10) type='single';
+      else if (V < 980 || elevDeg < 28) type='double';
+      else if (V < 1180 || elevDeg < 40) type='triple';
+      else type='homerun';
+
+      // 飛球開始
+      fly = {
+        x: pitch.x, y: pitch.y,
+        vx, vy,
+        ax: 0, ay: 880,  // 重力弱め（演出）
+        type, t: 0, trail:[]
+      };
+      pitch.alive = false; // この投球は終了
+      endPitch(false);     // 自動判定はしない
+      if (type==='grounder') toast('内野ゴロ…');
+      if (type==='single')  toast('ヒット！');
+      if (type==='double')  toast('ツーベース！');
+      if (type==='triple')  toast('スリーベース！');
+      if (type==='homerun') toast('ホームラン！');
+    }
+  }
+
+  function resolveFlyEnd(){
+    if (!fly) return;
+    const t = fly.type;
+    if (t==='grounder'){ out(); }
+    else if (t==='single'){ single(); }
+    else if (t==='double'){ doubleHit(); }
+    else if (t==='triple'){ tripleHit(); }
+    else if (t==='homerun'){ homerun(); }
+    fly = null;
+    updateHUD();
+  }
+
+  // ===== 入力（スイング） =====
+  function startSwing(n){
+    if (BAT.cd<=0){ BAT.t = BAT.DUR; BAT.cd = BAT.COOLDOWN; }
+    BAT.activeDigit = n|0;
+  }
   pad.addEventListener('click', (e)=>{
-    const b = e.target.closest('.num');
-    if (!b) return;
-    const n = +(b.dataset.n||0); if (!n) return;
-    swingWith(n);
+    const b = e.target.closest('.num'); if (!b) return;
+    startSwing(+(b.dataset.n||0));
   });
   addEventListener('keydown', (e)=>{
-    // キーボード 1..9
     const k = e.key;
-    if (k>='1' && k<='9'){ swingWith(+k); }
+    if (k>='1' && k<='9'){ startSwing(+k); }
   });
 
-  // ===== help =====
+  // ===== help & reset =====
   function openHelp(){ helpModal.setAttribute('open',''); }
   function closeHelpModal(){ helpModal.removeAttribute('open'); }
   helpBtn.addEventListener('click', openHelp);
   closeHelp.addEventListener('click', closeHelpModal);
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
-  if (!localStorage.getItem('tenbase_seen_help')){ openHelp(); localStorage.setItem('tenbase_seen_help','1'); }
-
-  // ===== reset =====
+  if (!localStorage.getItem('tenbase_seen_help_v2')){ openHelp(); localStorage.setItem('tenbase_seen_help_v2','1'); }
   resetBtn.addEventListener('click', ()=>{ resetGame(); toast('リセットしました'); });
 
-  // ===== draw =====
+  // ===== 描画 =====
   function drawBall(x,y,r,num){
-    // 野球ボール風
     ctx.save(); ctx.translate(x,y);
     const g = ctx.createRadialGradient(-r*0.4,-r*0.6, r*0.2, 0,0, r);
     g.addColorStop(0,'#fff'); g.addColorStop(1,'#ececec');
     ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2; ctx.stroke();
-
     // 縫い目
     ctx.strokeStyle='#d33'; ctx.lineWidth=2;
     ctx.beginPath(); ctx.arc(0,0,r*0.72, -1.1, 1.1); ctx.stroke();
@@ -347,7 +428,6 @@
       }
     }
     stitches(-1.1,1.1); stitches(Math.PI-1.1, Math.PI+1.1);
-
     // 数字
     ctx.fillStyle='#111'; ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.font='bold '+Math.floor(r*1.1)+'px system-ui'; ctx.fillText(num, 0, 2);
@@ -355,7 +435,6 @@
   }
 
   function drawDiamondHUD(){
-    // 左上：ダイヤモンド（占有表示）
     const x = 30, y = 28, a = 8;
     function base(px,py,filled){
       ctx.save(); ctx.translate(px,py); ctx.rotate(Math.PI/4);
@@ -375,20 +454,94 @@
   }
 
   function drawBat(){
-    // 中央固定のバットヘッド円
-    const R = 68;
-    // ガイド弧
-    ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.arc(PLATE_X, PLATE_Y, R, -0.6, 0.4); ctx.stroke();
-    // ヘッド
-    const t = BAT.DUR>0 ? clamp(1 - BAT.swingT/BAT.DUR, 0, 1) : 0;
-    const k = 1 - Math.pow(1-t, 2);
-    const ang = -0.6 + (0.4+0.6)*k;
-    const x = PLATE_X + Math.cos(ang)*R, y = PLATE_Y + Math.sin(ang)*R;
-    ctx.globalAlpha = BAT.swingT>0 ? 0.95 : 0.55;
-    ctx.fillStyle='rgba(20,20,20,.20)';
-    ctx.beginPath(); ctx.arc(x,y, BAT.r, 0, Math.PI*2); ctx.fill();
-    ctx.globalAlpha=1;
+    const {gx,gy,hx,hy,ang} = batSegment();
+
+    // 影（奥）
+    ctx.save();
+    ctx.globalAlpha = 0.12;
+    ctx.lineCap='round';
+    ctx.strokeStyle='#000'; ctx.lineWidth = BAT.headR*2.0;
+    ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(hx,hy); ctx.stroke();
+    ctx.globalAlpha=1; ctx.restore();
+
+    // バット本体（カプセル：シャフト→ヘッド）
+    ctx.save();
+    ctx.lineCap='round';
+    // シャフト
+    ctx.strokeStyle='#c9a36a'; ctx.lineWidth=BAT.shaftR*2;
+    ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(hx,hy-0.0001); ctx.stroke();
+    // ヘッド（先端太）
+    ctx.strokeStyle='#b88d4d'; ctx.lineWidth=BAT.headR*2;
+    const midx = (gx*0.2 + hx*0.8), midy = (gy*0.2 + hy*0.8);
+    ctx.beginPath(); ctx.moveTo(midx,midy); ctx.lineTo(hx,hy); ctx.stroke();
+
+    // スイング軌跡（モーションブラー）
+    if (BAT.t>0){
+      const sweep = 18;
+      ctx.globalAlpha=0.22;
+      for (let i=1;i<=3;i++){
+        const a = ang - i*0.06;
+        const gxx = BAT.cx + Math.cos(a) * (BAT.R - 32);
+        const gyy = BAT.cy + Math.sin(a) * (BAT.R - 32);
+        const hxx = BAT.cx + Math.cos(a) * (BAT.R + 78);
+        const hyy = BAT.cy + Math.sin(a) * (BAT.R + 78);
+        ctx.lineCap='round';
+        ctx.strokeStyle='#b88d4d'; ctx.lineWidth=BAT.headR*2 - i*4;
+        ctx.beginPath(); ctx.moveTo(gxx,gyy); ctx.lineTo(hxx,hyy); ctx.stroke();
+      }
+      ctx.globalAlpha=1;
+    }
+    ctx.restore();
+
+    // ヒント：狙い（10-投球数字）
+    if (pitch){
+      ctx.fillStyle='rgba(0,0,0,.62)'; ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.font='bold 14px system-ui';
+      ctx.fillText('ねらい： '+(10 - pitch.num), BAT.cx, BAT.cy + BAT.R + 12);
+    }
+  }
+
+  function drawFly(){
+    if (!fly) return;
+    // トレイル
+    fly.trail.push({x:fly.x, y:fly.y});
+    if (fly.trail.length>18) fly.trail.shift();
+    ctx.save(); ctx.globalAlpha=0.18;
+    ctx.strokeStyle='rgba(0,0,0,.5)'; ctx.lineWidth=2;
+    ctx.beginPath();
+    for (let i=0;i<fly.trail.length;i++){
+      const p = fly.trail[i];
+      if (i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke(); ctx.restore();
+
+    // 本体
+    const r = 18;
+    drawBall(fly.x, fly.y, r, 0);
+
+    // 演出テキスト
+    ctx.save();
+    ctx.textAlign='center'; ctx.textBaseline='bottom'; ctx.font='bold 16px system-ui';
+    ctx.fillStyle = (fly.type==='homerun') ? '#e05c80' :
+                    (fly.type==='triple') ? '#7a66d9' :
+                    (fly.type==='double') ? '#2a8fbd' :
+                    (fly.type==='single') ? '#11a36f' : '#6d7280';
+    const label = fly.type==='homerun'?'HOMERUN!':
+                  fly.type==='triple'?'TRIPLE!':
+                  fly.type==='double'?'DOUBLE!':
+                  fly.type==='single'?'HIT!':'GROUNDER';
+    ctx.fillText(label, fly.x, fly.y - 22);
+    ctx.restore();
+
+    // HRのときは花火
+    if (fly.type==='homerun' && (Math.random()<0.3)){
+      const rr = 6 + Math.random()*16;
+      ctx.save(); ctx.globalAlpha=0.6;
+      ctx.strokeStyle='#e05c80'; ctx.lineWidth=3;
+      ctx.beginPath();
+      ctx.arc(fly.x, fly.y, rr, 0, Math.PI*2);
+      ctx.stroke(); ctx.restore();
+    }
   }
 
   function draw(){
@@ -398,7 +551,7 @@
     ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 2;
     roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
 
-    // フィールド背景（芝っぽく）
+    // フィールド
     ctx.fillStyle='#f9f7f2';
     ctx.fillRect(LEFT, CEIL, RIGHT-LEFT, FLOOR-CEIL);
 
@@ -408,19 +561,7 @@
     ctx.strokeRect(PLATE_X-STRIKE_W/2, PLATE_Y-STRIKE_H, STRIKE_W, STRIKE_H);
     ctx.restore();
 
-    // 目標ヒント（ねらい=10-投球数字）
-    if (pitch){
-      ctx.fillStyle='rgba(0,0,0,.55)'; ctx.textAlign='center'; ctx.textBaseline='top';
-      ctx.font='bold 14px system-ui';
-      ctx.fillText('ねらい： '+(10 - pitch.num), PLATE_X, PLATE_Y + 74);
-    }
-
-    // ボール
-    if (pitch){
-      drawBall(pitch.x, pitch.y, 18, pitch.num);
-    }
-
-    // ホームベース（飾り）
+    // ホームベース
     ctx.fillStyle='#eee';
     ctx.beginPath();
     ctx.moveTo(PLATE_X-16, PLATE_Y+16);
@@ -430,10 +571,18 @@
     ctx.lineTo(PLATE_X-16, PLATE_Y);
     ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.08)'; ctx.stroke();
 
+    // 現在の投球
+    if (pitch){
+      drawBall(pitch.x, pitch.y, 18, pitch.num);
+    }
+
+    // 飛球
+    drawFly();
+
     // バット
     drawBat();
 
-    // ダイヤモンドHUD
+    // ランナー表示
     drawDiamondHUD();
   }
 
@@ -443,35 +592,55 @@
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
-  // ===== main loop =====
+  // ===== メインループ =====
   let last = performance.now();
   function loop(now){
     const dt = (now-last)/1000; last=now;
 
-    // バットCD
-    if (BAT.swingT>0) BAT.swingT = Math.max(0, BAT.swingT - dt);
-    if (BAT.cd>0)     BAT.cd     = Math.max(0, BAT.cd - dt);
+    // バット
+    if (BAT.t>0) BAT.t = Math.max(0, BAT.t - dt);
+    if (BAT.cd>0) BAT.cd = Math.max(0, BAT.cd - dt);
 
     // 投球管理
-    if (!pitch){
+    if (!pitch && !fly){
       nextPitchTimer -= dt;
       if (nextPitchTimer<=0) spawnPitch();
-    }else{
-      // 進行
-      pitch.tToPlate = Math.max(0, pitch.tToPlate - dt);
+    }
+
+    // 進行：投球
+    if (pitch){
       pitch.x += pitch.vx*dt;
       pitch.y += pitch.vy*dt;
 
-      // プレート通過後の自動判定
-      if (pitch.y >= PLATE_Y + 24){
-        if (pitch.inZone){
-          strikes++; toast('見逃しストライク');
-          if (strikes>=3){ out(); }
-        }else{
-          balls++; toast('ボール');
-          if (balls>=4){ walkAdvance(); balls=0; strikes=0; toast('フォアボール'); }
-        }
-        endPitch(); updateHUD();
+      // スイング中は当たり判定
+      if (BAT.t>0) tryHit();
+
+      // 通過で自動判定（当たらなかった）
+      if (pitch.y >= PLATE_Y + 26){
+        endPitch(true);
+      }
+    }
+
+    // 進行：飛球
+    if (fly){
+      fly.t += dt;
+      // パラメータ差で演出
+      if (fly.type==='grounder'){
+        // 地面に当たったらすぐ終わり
+        fly.vy += 600*dt; fly.x += fly.vx*dt; fly.y += fly.vy*dt;
+        if (fly.y >= FLOOR-18){ resolveFlyEnd(); }
+      }else if (fly.type==='single'){
+        fly.vy += fly.ay*dt; fly.x += fly.vx*dt; fly.y += fly.vy*dt;
+        if (fly.y >= PLATE_Y-30 || fly.t>1.2){ resolveFlyEnd(); }
+      }else if (fly.type==='double'){
+        fly.vy += fly.ay*dt; fly.x += fly.vx*dt; fly.y += fly.vy*dt;
+        if (fly.t>1.5 || fly.y >= CEIL+190){ resolveFlyEnd(); }
+      }else if (fly.type==='triple'){
+        fly.vy += fly.ay*dt; fly.x += fly.vx*dt; fly.y += fly.vy*dt;
+        if (fly.t>1.8 || fly.y <= CEIL+40){ resolveFlyEnd(); }
+      }else if (fly.type==='homerun'){
+        fly.vy += (fly.ay*0.9)*dt; fly.x += fly.vx*dt; fly.y += fly.vy*dt;
+        if (fly.y < -40 || fly.t>2.2){ resolveFlyEnd(); }
       }
     }
 
@@ -489,7 +658,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10baseball-normal-v1';
+    const CACHE='10baseball-normal-v2';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
