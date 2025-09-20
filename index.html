@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares + Belts, Fix) v4.1</title>
+<title>10 Game — DecaMerge (Squares + Belts) v4.2</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -31,6 +31,7 @@
     --n1:#EB6A5E; --n2:#EE8E5E; --n3:#F0C95E; --n4:#79C5AE; --n5:#A7D5FF;
     --n6:#7CB0F2; --n7:#B6A2E7; --n8:#F28BC4; --n9:#D3A760;
     --b10:#3AB272; --b20:#2A8FBD; --b40:#7A66D9; --b80:#E05C80; --b160:#D48B26; --b320:#3B78D8; --b640:#2F9F66;
+    --belt:#EAE5DA;
   }
   *{box-sizing:border-box}
   html,body{
@@ -76,7 +77,7 @@
   <header>
     <div class="brand">
       <div class="ttl">10 Game</div>
-      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア／改）</div>
+      <div class="sub">DecaMerge — 足して10 → 10→20→40…（四角＋コンベア）</div>
     </div>
     <div class="chips">
       <div class="chip">Score: <b id="score">0</b> / Best: <b id="best">0</b></div>
@@ -105,12 +106,12 @@
 <!-- How-to -->
 <div id="help" role="dialog" aria-modal="true" aria-label="遊び方">
   <div class="card">
-    <h3>🎮 遊び方（Squares + Belts / Fix）</h3>
+    <h3>🎮 遊び方（Squares + Belts）</h3>
     <ol>
       <li>画面上で指を<strong>左右にスライド</strong>して狙いを合わせ、<strong>指を離す</strong>と投入。</li>
       <li><strong>1〜9</strong>が<strong>隣り合うグループ</strong>で<strong>合計=10</strong>なら、<strong>即「10」</strong>に合体（2〜6個、複数同時OK）。</li>
-      <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が軽く重なったら<strong>倍々合体</strong>。</li>
-      <li>盤面には<strong>コンベア帯</strong>（自動で左右に流れる）と弱い<strong>そよ風</strong>があります。</li>
+      <li><strong>10,20,40…</strong>は<strong>同じ値どうし</strong>が<strong>接触 or 重なり</strong>で<strong>倍々合体</strong>。</li>
+      <li>盤面には<strong>コンベア帯</strong>（右向き矢印＝右へ、左向き矢印＝左へ）と弱い<strong>そよ風</strong>があります。</li>
       <li>赤線より上に一定時間あると<b>ゲームオーバー</b>（投入直後0.45秒は無視）。</li>
     </ol>
     <div class="actions">
@@ -154,7 +155,7 @@
   const LEFT = 22, RIGHT = W-22, FLOOR = H-14, CEIL = 80; // 赤線
   const BOARD_TOP = 6, BOARD_LEFT = LEFT, BOARD_RIGHT = RIGHT, BOARD_BOTTOM = FLOOR;
 
-  const DT = 1/60, SUBSTEPS = 3, ITER = 3; // ★ 追加：サブステップ＆反復解決
+  const DT = 1/60, SUBSTEPS = 3, ITER = 3;
   const G = 1850;
   const AIR_FRICTION = 0.975;
   const REST_FLOOR = 0.08;
@@ -162,9 +163,9 @@
   const REST_N     = 0.05;
   const VX_MAX = 980, VY_MAX = 2600;
   const MAX_TILES  = 95;
-  const ROT_MAX = 0.11; // ★回転角（±約6.3°に制限）
+  const ROT_MAX = 0.11;
 
-  // --- Conveyor belts ---
+  // --- Conveyor belts (v>0 →→、v<0 ←←) ---
   const BELTS = [
     { y: 200, t: 12, v: +160 },
     { y: 340, t: 12, v: -160 },
@@ -223,9 +224,9 @@
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_belt_fix')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_belt_fix', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_fix')||0;
+    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42')||0;
     nextAEl.textContent = nextQ[0];
     nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
@@ -244,7 +245,7 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqbelt_fix')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_fix','1'); }
+  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -310,10 +311,10 @@
 
   // ===== physics helpers =====
   const CONTACT_TOL_SMALL = 7;
-  const BIG_OVERLAP_PIX   = 1;
-  const BOUND_SLOP = 0.5;
+  const BIG_MERGE_TOL     = 3;   // ★上下/左右の“接触”も合体OK（≤3pxギャップ）
 
   function keepInside(t){
+    const BOUND_SLOP = 0.5;
     if (t.x - t.h < LEFT+BOUND_SLOP){ t.x = LEFT+BOUND_SLOP + t.h; t.vx = Math.max(t.vx,0)*(-REST_WALL); }
     if (t.x + t.h > RIGHT-BOUND_SLOP){ t.x = RIGHT-BOUND_SLOP - t.h; t.vx = -Math.max(-t.vx,0)*REST_WALL; }
     if (t.y + t.h > FLOOR-BOUND_SLOP){
@@ -321,11 +322,11 @@
       if (Math.abs(t.vy) < 40) t.vy = 0; else t.vy = -t.vy * REST_FLOOR;
       if (t.vy === 0){ t.vx *= 0.945; if (Math.abs(t.vx)<6) t.vx = 0; }
     }
-    if (t.y - t.h < BOARD_TOP+2) { t.y = BOARD_TOP+2 + t.h; t.vy = Math.max(t.vy,0); } // ほぼ不要だが保険
+    if (t.y - t.h < BOARD_TOP+2) { t.y = BOARD_TOP+2 + t.h; t.vy = Math.max(t.vy,0); }
   }
 
   function resolvePairs(){
-    for (let it=0; it<ITER; it++){
+    for (let it=0; it<3; it++){
       for (let i=0;i<tiles.length;i++){
         for (let j=i+1;j<tiles.length;j++){
           const A=tiles[i], B=tiles[j];
@@ -357,72 +358,64 @@
           }
         }
       }
-      // 反復ごとに境界クランプ
       for (const t of tiles) keepInside(t);
     }
   }
-
-  function relaxWorld(times=3){ for(let i=0;i<times;i++) resolvePairs(); }
+  function relaxWorld(n=4){ for(let i=0;i<n;i++) resolvePairs(); }
 
   // ===== physics step =====
   function step(dt){
     gameTime += dt;
     cooldown = Math.max(0, cooldown-dt);
 
-    const breeze = BREEZE.amp * Math.sin(gameTime*BREEZE.speed);
+    const breeze = 110 * Math.sin(gameTime*0.7);
 
-    // 速度→位置
+    // integrate
     for (const t of tiles){
       t.vy += G*dt;
-      // コンベア帯
+
+      // belts（矢印と同じ向き）：v>0 →、v<0 ←
       const bottom = t.y + t.h;
       for (const b of BELTS){
         if (bottom > b.y - b.t && bottom < b.y + b.t){
-          t.vx += b.v * dt * 0.9; t.vx *= 0.992;
+          t.vx += b.v * dt * 0.9;
+          t.vx *= 0.992;
         }
       }
-      // そよ風
+
+      // breeze
       t.vx += breeze * dt * 0.12;
 
-      // 空気抵抗
+      // damping
       t.vx *= AIR_FRICTION; t.vy *= AIR_FRICTION;
-
-      // クランプ
       t.vx = clamp(t.vx, -VX_MAX, VX_MAX);
       t.vy = clamp(t.vy, -VY_MAX, VY_MAX);
 
-      // 積分
       t.x += t.vx*dt; t.y += t.vy*dt;
 
-      // 壁・床
       keepInside(t);
 
-      // 見た目の軽回転（角のはみ出しを抑えるため小さめ）
+      // small visual tilt
       const target = clamp(t.vx/620, -ROT_MAX, ROT_MAX);
       t.rot += (target - t.rot) * 0.12;
     }
 
-    // ★ 反復衝突解決
     resolvePairs();
 
-    // 合体（複数パスで収束）
-    let changed, pass=0;
-    do{ changed = tryMerges(); pass++; } while(changed && pass<16);
-
-    // ★ 合体直後のリラックス（重なり残り解消）
+    // merges
+    let changed, pass=0; do{ changed = tryMerges(); pass++; } while(changed && pass<16);
     if (changed) relaxWorld(4);
 
-    // FX
+    // fx
     for (const r of rings){ r.t += dt; }
     rings = rings.filter(r=>r.t<0.9);
 
-    // 赤線ゲームオーバー（位置のみ）
+    // game over
     const AGE_SAFE = 0.45, MARGIN = 1;
     let danger=false;
     for (const t of tiles){
       if (gameTime - t.born < AGE_SAFE) continue;
-      const top = t.y - t.h;
-      if (top <= CEIL - MARGIN){ danger=true; break; }
+      if (t.y - t.h <= CEIL - MARGIN){ danger=true; break; }
     }
     dangerTime = danger ? Math.min(10, dangerTime+dt) : 0;
     if (dangerTime > 0.70 && !over){ over=true; toast('GAME OVER! 元に戻す or リセット'); }
@@ -433,22 +426,26 @@
     const dx=Math.abs(b.x-a.x), dy=Math.abs(b.y-a.y);
     return dx <= (a.h + b.h + CONTACT_TOL_SMALL) && dy <= (a.h + b.h + CONTACT_TOL_SMALL);
   }
-  function overlappingBig(a,b){
+  // ★大タイル：重なり もしくは “片軸が重なり & もう片軸は≤3pxのギャップ” で合体OK
+  function contactBig(a,b){
     const overlapX = (a.h+b.h) - Math.abs(b.x-a.x);
     const overlapY = (a.h+b.h) - Math.abs(b.y-a.y);
-    return overlapX > BIG_OVERLAP_PIX && overlapY > BIG_OVERLAP_PIX;
+    // どちらかの軸が重なっていて、他方は接触(>=-3px)で許容
+    return (overlapX >= 0 && overlapY >= -BIG_MERGE_TOL) ||
+           (overlapY >= 0 && overlapX >= -BIG_MERGE_TOL) ||
+           (overlapX >= 0 && overlapY >= 0); // 両軸重なり
   }
 
   function tryMerges(){
     let changed=false;
 
-    // 大タイル：同値どうしで倍化
+    // 大タイル：同値→倍々
     const removedBig = new Set();
     for (let i=0;i<tiles.length;i++){
       const A=tiles[i]; if (A.val<10 || removedBig.has(A.id)) continue;
       for (let j=i+1;j<tiles.length;j++){
         const B=tiles[j]; if (B.val<10 || removedBig.has(B.id)) continue;
-        if (A.val===B.val && overlappingBig(A,B)){
+        if (A.val===B.val && contactBig(A,B)){
           const out=A.val*2, nx=(A.x+B.x)/2, ny=(A.y+B.y)/2;
           const h=halfFor(out), vx=(A.vx+B.vx)*0.1, vy=(A.vy+B.vy)*0.1;
           tiles.push({x:nx,y:ny,vx,vy,h,val:out,id:idSeq++, m:massFor(h), born:gameTime, rot:(A.rot+B.rot)/2});
@@ -545,13 +542,12 @@
     ctx.strokeStyle = CSS('--line'); ctx.lineWidth = 2;
     roundRectPath(LEFT-8, 6, RIGHT-LEFT+16, FLOOR-6, 16); ctx.stroke();
 
-    // 盤面内クリップ ★はみ出し描画防止
-    ctx.save();
-    ctx.beginPath();
+    // 盤面内クリップ
+    ctx.save(); ctx.beginPath();
     ctx.rect(BOARD_LEFT, BOARD_TOP, BOARD_RIGHT-BOARD_LEFT, BOARD_BOTTOM-BOARD_TOP);
     ctx.clip();
 
-    // コンベア帯
+    // コンベア帯（矢印の向き＝移動方向）
     for (const b of BELTS) drawBelt(b.y, b.t, b.v>0?1:-1);
 
     // 赤線
@@ -575,7 +571,7 @@
       ctx.globalAlpha = 1;
     }
 
-    ctx.restore(); // クリップ解除
+    ctx.restore();
 
     if (over){
       ctx.fillStyle = 'rgba(0,0,0,.48)'; ctx.fillRect(0,0,W,H);
@@ -592,8 +588,11 @@
     ctx.fillStyle = 'rgba(0,0,0,0.08)';
     for (let x=LEFT+10; x<RIGHT-10; x+=30){
       ctx.beginPath();
-      if (dir>0){ ctx.moveTo(x-6, -4); ctx.lineTo(x+6, 0); ctx.lineTo(x-6, 4); }
-      else       { ctx.moveTo(x+6, -4); ctx.lineTo(x-6, 0); ctx.lineTo(x+6, 4); }
+      if (dir>0){ // 右向き
+        ctx.moveTo(x-6, -4); ctx.lineTo(x+6, 0); ctx.lineTo(x-6, 4);
+      }else{      // 左向き
+        ctx.moveTo(x+6, -4); ctx.lineTo(x-6, 0); ctx.lineTo(x+6, 4);
+      }
       ctx.closePath(); ctx.fill();
     }
     ctx.restore();
@@ -626,7 +625,7 @@
     ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
   }
 
-  // ===== main loop（SUBSTEPS） =====
+  // ===== main loop =====
   function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'), 1300); }
   let acc=0, last=performance.now();
   function loop(now){
@@ -646,7 +645,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v41-sqbelt-fix';
+    const CACHE='10game-decamerge-v42-sqbelt-merge';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
