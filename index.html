@@ -178,7 +178,10 @@
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
   let aimX = (LEFT+RIGHT)/2;
+
+  // ★ 生成キューは動的確率に基づく
   let nextQ = [randSmall(), randSmall()];
+
   let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
@@ -209,18 +212,36 @@
   }
   function massFor(h){ const L=2*h; return L*L; }
 
-  function randSmall(){
-    const r = Math.random();
-    if (r<0.06) return 1;
-    if (r<0.14) return 2;
-    if (r<0.25) return 3;
-    if (r<0.38) return 4;
-    if (r<0.53) return 5;
-    if (r<0.69) return 6;
-    if (r<0.82) return 7;
-    if (r<0.93) return 8;
-    return 9;
+  // ===== 生成確率（序・中・終盤で切替） =====
+  // 配列は [1..9] の確率
+  const DIST_EARLY = [0.06,0.08,0.11,0.13,0.15,0.16,0.13,0.11,0.07];
+  const DIST_MID   = [0.06,0.08,0.14,0.15,0.17,0.17,0.10,0.08,0.05]; // 7/8/9 少し減
+  const DIST_LATE  = [0.09,0.11,0.14,0.17,0.18,0.19,0.06,0.04,0.02]; // 7/8/9 を大幅に減
+
+  function currentPhase(){
+    // max タイル値・枚数・スコアのいずれかが閾値超えで段階アップ
+    let maxVal = 0;
+    for (const t of tiles){ if (t.val > maxVal) maxVal = t.val; }
+    if (maxVal >= 80 || tiles.length > 65 || score > 2000) return 2; // 終盤
+    if (maxVal >= 40 || tiles.length > 45 || score > 800)  return 1; // 中盤
+    return 0; // 序盤
   }
+  function pickFromDist(dist){
+    const r = Math.random();
+    let acc = 0;
+    for (let i=0;i<9;i++){
+      acc += dist[i];
+      if (r < acc) return (i+1);
+    }
+    return 9; // 丸め誤差保険
+  }
+  function randSmall(){
+    const ph = currentPhase();
+    if (ph === 2) return pickFromDist(DIST_LATE);
+    if (ph === 1) return pickFromDist(DIST_MID);
+    return pickFromDist(DIST_EARLY);
+  }
+
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
