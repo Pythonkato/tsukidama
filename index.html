@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares + Belts) v4.2</title>
+<title>10 Game — DecaMerge (Squares + Belts) v4.2a</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -178,7 +178,13 @@
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
   let aimX = (LEFT+RIGHT)/2;
-  let nextQ = [randSmall(), randSmall()];
+
+  // ★ 直近の小タイル履歴（7/8/9ストリーク抑制用）
+  const lastNums = [];
+
+  // Next queue を新ロジックで
+  let nextQ = [makeNext(), makeNext()];
+
   let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
@@ -209,24 +215,36 @@
   }
   function massFor(h){ const L=2*h; return L*L; }
 
-  function randSmall(){
-    const r = Math.random();
-    if (r<0.06) return 1;
-    if (r<0.14) return 2;
-    if (r<0.25) return 3;
-    if (r<0.38) return 4;
-    if (r<0.53) return 5;
-    if (r<0.69) return 6;
-    if (r<0.82) return 7;
-    if (r<0.93) return 8;
-    return 9;
+  // ---- 出現率調整ロジック ----
+  // 危険時ほど低数（1〜6）が出やすい。7/8/9が2連続した直後は、さらに7/8/9が出にくい。
+  function makeNext(){
+    const danger = dangerTime > 0.25;
+    // 重み（合計≒1）：通常/危険時
+    const w = danger
+      ? [0.12,0.13,0.14,0.14,0.14,0.13,0.10,0.06,0.04]  // 低数寄り
+      : [0.10,0.12,0.14,0.15,0.15,0.14,0.10,0.06,0.04]; // 標準
+    let r = Math.random(), v = 1;
+    for (let i=0;i<9;i++){ r -= w[i]; if (r<=0){ v = i+1; break; } }
+
+    // 7/8/9ストリーク抑制：直近2つが7〜9なら、今回が7〜9のとき80%で1〜6から引き直し
+    const high = (n)=>n>=7;
+    if (lastNums.length>=2 && high(lastNums[lastNums.length-1]) && high(lastNums[lastNums.length-2]) && v>=7){
+      if (Math.random()<0.8){
+        v = 1 + Math.floor(Math.random()*6); // 1..6 から引き直し
+      }
+    }
+    return v;
   }
+  function pushHistory(n){
+    if (n>=1 && n<=9){ lastNums.push(n); if (lastNums.length>2) lastNums.shift(); }
+  }
+
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42')||0;
+    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42a')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42a', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42a')||0;
     nextAEl.textContent = nextQ[0];
     nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
@@ -245,7 +263,7 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42','1'); }
+  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42a')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42a','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -284,29 +302,33 @@
   // ===== game control =====
   function reset(){
     tiles = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0; gameTime=0;
-    aimX=(LEFT+RIGHT)/2; nextQ=[randSmall(), randSmall()]; undoState=null;
+    aimX=(LEFT+RIGHT)/2; nextQ=[makeNext(), makeNext()]; undoState=null;
+    lastNums.length = 0;
     updateHUD();
   }
   function snapshot(){
     return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born,rot:t.rot})),
              rings: rings.map(r=>({...r})),
-             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
+             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime,
+             lastNums:[...lastNums] };
   }
   function restore(s){
     tiles = s.tiles.map(t=>({...t})); rings = s.rings.map(r=>({...r}));
     score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
-    gameTime=s.gameTime; updateHUD();
+    gameTime=s.gameTime; lastNums.length=0; Array.prototype.push.apply(lastNums, s.lastNums||[]);
+    updateHUD();
   }
   function undo(){ if (!undoState) return; restore(undoState); undoState=null; toast('1手戻しました'); }
   function drop(){
     if (over || cooldown>0) return;
     if (tiles.length>=MAX_TILES){ toast('いっぱいです。合体で減らそう！'); return; }
     undoState = snapshot();
-    const val = nextQ.shift(); nextQ.push(randSmall());
+    const val = nextQ.shift(); nextQ.push(makeNext());
     const h = halfFor(val);
     const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
     tiles.push({x, y: CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime, rot:0});
     score += val; cooldown = .18; updateHUD();
+    pushHistory(val); // ★ 履歴記録
   }
 
   // ===== physics helpers =====
@@ -430,10 +452,9 @@
   function contactBig(a,b){
     const overlapX = (a.h+b.h) - Math.abs(b.x-a.x);
     const overlapY = (a.h+b.h) - Math.abs(b.y-a.y);
-    // どちらかの軸が重なっていて、他方は接触(>=-3px)で許容
     return (overlapX >= 0 && overlapY >= -BIG_MERGE_TOL) ||
            (overlapY >= 0 && overlapX >= -BIG_MERGE_TOL) ||
-           (overlapX >= 0 && overlapY >= 0); // 両軸重なり
+           (overlapX >= 0 && overlapY >= 0);
   }
 
   function tryMerges(){
@@ -471,7 +492,6 @@
 
       for (let s=0;s<small.length;s++){
         if (visited[s]) continue;
-        // 成分抽出
         const comp=[]; const q=[s]; visited[s]=true;
         while(q.length){ const v=q.shift(); comp.push(v); for (const nb of adj[v]) if(!visited[nb]){visited[nb]=true;q.push(nb);} }
         if (comp.length<2) continue;
@@ -645,7 +665,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v42-sqbelt-merge';
+    const CACHE='10game-decamerge-v42a-sqbelt-merge';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
