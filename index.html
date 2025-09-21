@@ -1,9 +1,11 @@
+了解です！出現率を「config」にまとめ、6〜9はゼロに設定した完全版を用意しました。あとで数値を変えるだけで調整できます（整数・小数どちらでもOK、合計は自動正規化）。
+
 <!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>10 Game — DecaMerge (Squares + Belts) v4.2a</title>
+<title>10 Game — DecaMerge (Squares + Belts) v4.2</title>
 <meta name="theme-color" content="#F4F1EA">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -124,6 +126,59 @@
 <div id="toast" class="toast"></div>
 
 <script>
+/* =========================
+   CONFIG: 1〜9の出現率（重み）
+   - 任意の正数/小数OK。合計は自動で正規化。
+   - 0にすると出現しません。
+   - 例）1:6 は「重み=6」という意味で、相対比率で抽選します。
+   - 今回の要望により 6,7,8,9 は 0 に設定。
+   ========================= */
+const CONFIG = {
+  spawnWeights: {
+    1: 6,
+    2: 8,
+    3: 11,
+    4: 13,
+    5: 15,
+    6: 0,
+    7: 0,
+    8: 0,
+    9: 0
+  }
+};
+
+/* 重みテーブルからランダムピッカーを生成 */
+function makeRandomPicker(weights){
+  const table = [];
+  let total = 0;
+  for (let v=1; v<=9; v++){
+    const w = Math.max(0, Number(weights[v] ?? 0));
+    table.push({v, w});
+    total += w;
+  }
+  // 全部0ならフェイルセーフ（均等1〜9）
+  if (total <= 0){
+    table.forEach(t => t.w = 1);
+    total = 9;
+  }
+  // 累積
+  let acc = 0;
+  for (const row of table){
+    acc += row.w;
+    row.cum = acc / total;
+  }
+  return function pick(){
+    const r = Math.random();
+    for (const row of table){
+      if (r < row.cum) return row.v;
+    }
+    return 9; // fallback
+  };
+}
+// ランダム関数（1〜9）を構築
+const pickSmall = makeRandomPicker(CONFIG.spawnWeights);
+
+// ===========================================================
 (()=> {
   // ===== DOM =====
   const cv = document.getElementById('cv');
@@ -178,13 +233,7 @@
   let tiles = [], rings = [];
   let score = 0, over = false, cooldown = 0, gameTime = 0;
   let aimX = (LEFT+RIGHT)/2;
-
-  // ★ 直近の小タイル履歴（7/8/9ストリーク抑制用）
-  const lastNums = [];
-
-  // Next queue を新ロジックで
-  let nextQ = [makeNext(), makeNext()];
-
+  let nextQ = [randSmall(), randSmall()];
   let showHint = false;
   let dangerTime = 0;
   let idSeq = 1;
@@ -215,36 +264,15 @@
   }
   function massFor(h){ const L=2*h; return L*L; }
 
-  // ---- 出現率調整ロジック ----
-  // 危険時ほど低数（1〜6）が出やすい。7/8/9が2連続した直後は、さらに7/8/9が出にくい。
-  function makeNext(){
-    const danger = dangerTime > 0.25;
-    // 重み（合計≒1）：通常/危険時
-    const w = danger
-      ? [0.12,0.13,0.14,0.14,0.14,0.13,0.10,0.06,0.04]  // 低数寄り
-      : [0.10,0.12,0.14,0.15,0.15,0.14,0.10,0.06,0.04]; // 標準
-    let r = Math.random(), v = 1;
-    for (let i=0;i<9;i++){ r -= w[i]; if (r<=0){ v = i+1; break; } }
-
-    // 7/8/9ストリーク抑制：直近2つが7〜9なら、今回が7〜9のとき80%で1〜6から引き直し
-    const high = (n)=>n>=7;
-    if (lastNums.length>=2 && high(lastNums[lastNums.length-1]) && high(lastNums[lastNums.length-2]) && v>=7){
-      if (Math.random()<0.8){
-        v = 1 + Math.floor(Math.random()*6); // 1..6 から引き直し
-      }
-    }
-    return v;
-  }
-  function pushHistory(n){
-    if (n>=1 && n<=9){ lastNums.push(n); if (lastNums.length>2) lastNums.shift(); }
-  }
+  // ★ 出現値（1〜9）をCONFIGから抽選
+  function randSmall(){ return pickSmall(); }
 
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
   function updateHUD(){
     scoreEl.textContent = score|0;
-    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42a')||0);
-    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42a', score|0);
-    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42a')||0;
+    const best = +(localStorage.getItem('decamerge_best_sq_belt_v42')||0);
+    if (score>best) localStorage.setItem('decamerge_best_sq_belt_v42', score|0);
+    bestEl.textContent = localStorage.getItem('decamerge_best_sq_belt_v42')||0;
     nextAEl.textContent = nextQ[0];
     nextBEl.textContent = nextQ[1];
     hintBtn.textContent = showHint ? 'ヒント OFF' : 'ヒント ON';
@@ -263,7 +291,7 @@
   okHelp.addEventListener('click', closeHelpModal);
   helpModal.addEventListener('click', (e)=>{ if (e.target===helpModal) closeHelpModal(); });
   addEventListener('keydown', (e)=>{ if (e.key==='Escape' && helpOpen) closeHelpModal(); });
-  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42a')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42a','1'); }
+  if (!localStorage.getItem('decamerge_seen_help_sqbelt_v42')) { openHelp(); localStorage.setItem('decamerge_seen_help_sqbelt_v42','1'); }
 
   // ===== pointer inputs =====
   function canvasX(e){
@@ -302,33 +330,29 @@
   // ===== game control =====
   function reset(){
     tiles = []; rings = []; score=0; over=false; cooldown=0; dangerTime=0; gameTime=0;
-    aimX=(LEFT+RIGHT)/2; nextQ=[makeNext(), makeNext()]; undoState=null;
-    lastNums.length = 0;
+    aimX=(LEFT+RIGHT)/2; nextQ=[randSmall(), randSmall()]; undoState=null;
     updateHUD();
   }
   function snapshot(){
     return { tiles: tiles.map(t=>({x:t.x,y:t.y,vx:t.vx,vy:t.vy,h:t.h,val:t.val,id:t.id,m:t.m,born:t.born,rot:t.rot})),
              rings: rings.map(r=>({...r})),
-             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime,
-             lastNums:[...lastNums] };
+             score, over, cooldown, dangerTime, aimX, nextQ:[...nextQ], gameTime };
   }
   function restore(s){
     tiles = s.tiles.map(t=>({...t})); rings = s.rings.map(r=>({...r}));
     score = s.score; over=s.over; cooldown=s.cooldown; dangerTime=s.dangerTime; aimX=s.aimX; nextQ=[...s.nextQ];
-    gameTime=s.gameTime; lastNums.length=0; Array.prototype.push.apply(lastNums, s.lastNums||[]);
-    updateHUD();
+    gameTime=s.gameTime; updateHUD();
   }
   function undo(){ if (!undoState) return; restore(undoState); undoState=null; toast('1手戻しました'); }
   function drop(){
     if (over || cooldown>0) return;
     if (tiles.length>=MAX_TILES){ toast('いっぱいです。合体で減らそう！'); return; }
     undoState = snapshot();
-    const val = nextQ.shift(); nextQ.push(makeNext());
+    const val = nextQ.shift(); nextQ.push(randSmall());
     const h = halfFor(val);
     const x = clamp(aimX, LEFT+h+1, RIGHT-h-1);
     tiles.push({x, y: CEIL-30, vx:0, vy:0, h, val, id:idSeq++, m:massFor(h), born:gameTime, rot:0});
     score += val; cooldown = .18; updateHUD();
-    pushHistory(val); // ★ 履歴記録
   }
 
   // ===== physics helpers =====
@@ -452,9 +476,10 @@
   function contactBig(a,b){
     const overlapX = (a.h+b.h) - Math.abs(b.x-a.x);
     const overlapY = (a.h+b.h) - Math.abs(b.y-a.y);
+    // どちらかの軸が重なっていて、他方は接触(>=-3px)で許容
     return (overlapX >= 0 && overlapY >= -BIG_MERGE_TOL) ||
            (overlapY >= 0 && overlapX >= -BIG_MERGE_TOL) ||
-           (overlapX >= 0 && overlapY >= 0);
+           (overlapX >= 0 && overlapY >= 0); // 両軸重なり
   }
 
   function tryMerges(){
@@ -492,6 +517,7 @@
 
       for (let s=0;s<small.length;s++){
         if (visited[s]) continue;
+        // 成分抽出
         const comp=[]; const q=[s]; visited[s]=true;
         while(q.length){ const v=q.shift(); comp.push(v); for (const nb of adj[v]) if(!visited[nb]){visited[nb]=true;q.push(nb);} }
         if (comp.length<2) continue;
@@ -665,7 +691,7 @@
 <script>
 if ('serviceWorker' in navigator) {
   const code = `
-    const CACHE='10game-decamerge-v42a-sqbelt-merge';
+    const CACHE='10game-decamerge-v42-sqbelt-merge';
     self.addEventListener('install',e=>{
       e.waitUntil(caches.open(CACHE).then(c=>c.addAll(['./'])));
       self.skipWaiting();
